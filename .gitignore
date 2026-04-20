@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+airscan-frontend/.next/
+airscan-frontend/out/
+
+# Production builds
+airscan-frontend/build/
+
+# Environment variables — NEVER commit these
+.env.local
+.env*.local
+airscan-frontend/.env.local
+backend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+backend/venv/
+backend/.venv/
+*.egg-info/
+dist/
+build/
+
+# ML model — large file, share via secure channel
+backend/model/*.pkl
+
+# Editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
