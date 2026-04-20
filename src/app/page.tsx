@@ -1,65 +1,102 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useRouter } from 'next/navigation';
+import { AirscanMark, IconGoogle, IconShield, IconCheck } from '@/components/ui/Icons';
+import { CameraFeed } from '@/components/FaceMesh';
+
+export default function LandingPage() {
+  const router = useRouter();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div style={{ minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', background: 'var(--paper)', overflow: 'auto' }}>
+      {/* Top bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 40px' }}>
+        <AirscanMark size={18} />
+        <div style={{ display: 'flex', gap: 24, fontSize: 13, color: 'var(--ink-3)' }}>
+          <span style={{ cursor: 'pointer' }}>Research</span>
+          <span style={{ cursor: 'pointer' }}>Clinicians</span>
+          <span style={{ cursor: 'pointer' }}>Privacy</span>
+        </div>
+      </div>
+
+      {/* Hero */}
+      <div style={{
+        flex: 1, display: 'flex', flexDirection: 'row',
+        padding: '48px 64px 64px', gap: 64, alignItems: 'stretch',
+        flexWrap: 'wrap',
+      }}>
+        {/* Left */}
+        <div style={{ flex: 1, minWidth: 300, display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: 560 }}>
+          <div className="eyebrow" style={{ color: 'var(--petrol)', marginBottom: 20 }}>
+            Airway Pre-screening · v1.0
+          </div>
+          <h1 className="serif" style={{ fontSize: 'clamp(40px, 5vw, 68px)', margin: 0, lineHeight: 1.02, color: 'var(--ink)', letterSpacing: '-0.02em' }}>
+            A three-angle scan<br/>
+            of airway risk,<br/>
+            <em style={{ color: 'var(--petrol)', fontStyle: 'italic' }}>in under a minute.</em>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p style={{ fontSize: 17, color: 'var(--ink-2)', lineHeight: 1.55, marginTop: 24, maxWidth: 440 }}>
+            Airscan uses 468-point facial landmark detection combined with demographic
+            data to flag potential obstructive sleep apnoea risk. Designed for use in
+            Malaysian primary-care clinics.
           </p>
+          <div style={{ display: 'flex', gap: 10, marginTop: 32, flexWrap: 'wrap' }}>
+            <button className="btn btn-primary btn-lg" onClick={() => router.push('/dashboard')}>
+              <IconGoogle /> Sign in with Google
+            </button>
+            <button className="btn btn-secondary btn-lg">Request clinician access</button>
+          </div>
+          <div style={{ marginTop: 28, display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 12, color: 'var(--ink-3)' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <IconShield size={14} /> PDPA compliant
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <IconCheck size={14} /> End-to-end encrypted
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="dot" style={{ background: 'var(--sage)' }} /> MOH submission pending
+            </span>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        {/* Right: specimen card */}
+        <div style={{ flex: 1, minWidth: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          <div style={{
+            position: 'relative', width: 380, height: 460,
+            background: 'var(--surface)', border: '1px solid var(--line)',
+            borderRadius: 16, padding: 24, boxShadow: 'var(--shadow-lg)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <span className="label">Specimen · Angle 1 / 3</span>
+              <span className="chip" style={{ background: 'var(--sage-bg)', color: 'var(--sage-ink)' }}>
+                <span className="dot" style={{ background: 'var(--sage)' }} /> Detected
+              </span>
+            </div>
+            <div style={{ position: 'relative', height: 340, overflow: 'hidden', borderRadius: 8 }}>
+              <CameraFeed angle="front" size={280} stability={0.9} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 12, fontSize: 11, color: 'var(--ink-3)' }} className="mono">
+              <span>468 landmarks</span>
+              <span>conf. 0.94</span>
+              <span>jitter ±0.8px</span>
+            </div>
+          </div>
+          <svg width="520" height="520" viewBox="0 0 520 520" style={{ position: 'absolute', zIndex: -1, opacity: 0.4, pointerEvents: 'none' }}>
+            <circle cx="260" cy="260" r="259" fill="none" stroke="var(--line)" strokeDasharray="2 6"/>
+            <circle cx="260" cy="260" r="200" fill="none" stroke="var(--line)"/>
+          </svg>
         </div>
-      </main>
+      </div>
+
+      {/* Footer */}
+      <footer style={{
+        borderTop: '1px solid var(--line)', padding: '16px 40px',
+        display: 'flex', justifyContent: 'space-between',
+        fontSize: 11, color: 'var(--ink-3)',
+      }}>
+        <span>© 2026 Airscan Research · Universiti Malaya</span>
+        <span className="mono">Build 1.0.0 · Region: MY</span>
+      </footer>
     </div>
   );
 }
