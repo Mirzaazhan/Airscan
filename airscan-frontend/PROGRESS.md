@@ -24,9 +24,9 @@ OSA airway risk as Green / Yellow / Red.
 | 2 | Firebase setup (auth, Firestore, Storage config) | ⏳ Pending | Config file exists (`src/lib/firebase.ts`) — needs real project credentials in `.env.local` |
 | 3 | Login page with Google auth | ⏳ Pending | Landing page built; Google OAuth button present but not wired to Firebase Auth yet |
 | 4 | Demographic form component | ✅ Done | `src/components/scan/DemographicsScreen.tsx` — validation, BMI calc, pill selectors |
-| 5 | FastAPI backend scaffold + mock predictor | ⏳ Pending | Mock predictor done in `src/lib/api.ts`; FastAPI `backend/` folder not yet created |
-| 6 | FaceScanner with MediaPipe (no capture yet) | ⏳ Pending | Simulated mesh overlay built; real camera + MediaPipe not yet wired |
-| 7 | Stability detection + image capture | ⏳ Pending | Simulated state machine in `ScanScreen.tsx`; real landmark capture pending |
+| 5 | FastAPI backend scaffold + mock predictor | ✅ Done | `backend/main.py` + `schemas/` + `model/predictor.py`; run `uvicorn main:app --reload` |
+| 6 | FaceScanner with MediaPipe (no capture yet) | ✅ Done | Real `getUserMedia()` + MediaPipe FaceMesh in `ScanScreen.tsx`; live video feed |
+| 7 | Stability detection + image capture | ✅ Done | Yaw-based stability (N-frame window), canvas snapshot, real `CapturedFrame` output |
 | 8 | 3-angle scan flow with progress indicator | ✅ Done | Full flow: Consent → Demographics → Instructions → Scan × 3 → Analyzing → Results |
 | 9 | Connect frontend to FastAPI /predict | ✅ Done (mock) | `src/lib/api.ts` — switches on `NEXT_PUBLIC_USE_MOCK_MODEL=true`; real model pending |
 | 10 | Results screen (Green/Yellow/Red) | ✅ Done | `src/app/results/page.tsx` — result card, confidence, feature breakdown |
@@ -83,6 +83,8 @@ OSA airway risk as Green / Yellow / Red.
 ## What Needs To Be Done Next (Priority Order)
 
 ### 🔥 Next session should start here:
+
+**Step B — Wire up real MediaPipe camera in ScanScreen** ✅ DONE (Session 2)
 
 **Step A — Wire up real Firebase Auth (Google OAuth)**
 1. Create a Firebase project at console.firebase.google.com
