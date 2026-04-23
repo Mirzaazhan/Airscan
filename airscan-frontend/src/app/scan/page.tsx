@@ -73,6 +73,7 @@ export default function ScanPage() {
         confidence: res.confidence,
         message: res.message,
         demographics: demo,
+        measurements: res.measurements,
       };
       addScan(scan);
       resetCaptures();

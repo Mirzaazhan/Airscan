@@ -41,7 +41,7 @@ function makeMockScans(): ScanRecord[] {
     risk: risks[i],
     confidence: confs[i],
     message: messages[risks[i]],
-    demographics: { age: 42, gender: 'Male', weight: 78, height: 172, race: 'Malay' },
+    demographics: { age: 42, gender: 'Male', weight: 78, height: 172, race: 'Malay', snoring: 'Sometimes', oxygenCondition: 'Normal', medicalHistory: 'None' },
   }));
 }
 

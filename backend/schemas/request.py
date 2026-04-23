@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List
+from typing import List, Optional
 
 
 class LandmarkPoint(BaseModel):
@@ -15,6 +15,9 @@ class Demographics(BaseModel):
     weight: float = Field(..., gt=0)
     height: float = Field(..., gt=0)
     race: str
+    snoring: Optional[str] = 'Never'
+    oxygenCondition: Optional[str] = 'Normal'
+    medicalHistory: Optional[str] = 'None'
 
 
 class LandmarkSet(BaseModel):

@@ -12,11 +12,15 @@ interface Props {
 }
 
 export function DemographicsScreen({ onSubmit, onBack, initial }: Props) {
-  const [form, setForm] = useState<Partial<Demographics>>(initial ?? { age: undefined, gender: '', weight: undefined, height: undefined, race: '' });
+  const [form, setForm] = useState<Partial<Demographics>>(initial ?? {
+    age: undefined, gender: '', weight: undefined, height: undefined, race: '',
+    snoring: '', oxygenCondition: 'Normal', medicalHistory: 'None',
+  });
   const update = (k: keyof Demographics, v: string | number) => setForm(f => ({ ...f, [k]: v }));
 
   const age = Number(form.age), weight = Number(form.weight), height = Number(form.height);
-  const valid = age >= 5 && age <= 80 && weight >= 10 && weight <= 200 && height >= 50 && height <= 250 && !!form.gender && !!form.race;
+  const valid = age >= 5 && age <= 80 && weight >= 10 && weight <= 200 && height >= 50 && height <= 250
+    && !!form.gender && !!form.race && !!form.snoring;
   const bmi = weight && height ? (weight / Math.pow(height / 100, 2)).toFixed(1) : null;
 
   const SelectPills = ({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[] }) => (
@@ -44,10 +48,11 @@ export function DemographicsScreen({ onSubmit, onBack, initial }: Props) {
           Tell us about yourself.
         </h2>
         <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.55, marginBottom: 32, maxWidth: 520 }}>
-          Demographic factors materially improve risk prediction. All fields are required.
+          Demographic and health factors materially improve OSA risk prediction accuracy.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+          {/* Age */}
           <div>
             <label className="label" style={{ display: 'block', marginBottom: 8 }}>Age (years)</label>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -58,12 +63,14 @@ export function DemographicsScreen({ onSubmit, onBack, initial }: Props) {
             </div>
           </div>
 
+          {/* Sex */}
           <div>
             <label className="label" style={{ display: 'block', marginBottom: 8 }}>Sex</label>
             <SelectPills value={form.gender ?? ''} onChange={v => update('gender', v)}
               options={['Male', 'Female', 'Prefer not to say']} />
           </div>
 
+          {/* Weight / Height */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             <div>
               <label className="label" style={{ display: 'block', marginBottom: 8 }}>Weight (kg)</label>
@@ -79,6 +86,7 @@ export function DemographicsScreen({ onSubmit, onBack, initial }: Props) {
             </div>
           </div>
 
+          {/* BMI display */}
           {bmi && (
             <div style={{ padding: '10px 14px', background: 'var(--paper-2)', border: '1px solid var(--line)', borderRadius: 'var(--r-sm)', fontSize: 13, color: 'var(--ink-2)', display: 'flex', gap: 12 }}>
               <span className="label">BMI</span>
@@ -89,10 +97,33 @@ export function DemographicsScreen({ onSubmit, onBack, initial }: Props) {
             </div>
           )}
 
+          {/* Ethnicity */}
           <div>
             <label className="label" style={{ display: 'block', marginBottom: 8 }}>Ethnicity</label>
             <SelectPills value={form.race ?? ''} onChange={v => update('race', v)}
               options={['Malay', 'Chinese', 'Indian', 'Other']} />
+          </div>
+
+          {/* Snoring frequency — required, primary OSA predictor */}
+          <div>
+            <label className="label" style={{ display: 'block', marginBottom: 4 }}>Snoring frequency <span style={{ color: 'var(--terra)', fontWeight: 400 }}>*</span></label>
+            <p style={{ fontSize: 12, color: 'var(--ink-3)', margin: '0 0 8px' }}>Snoring is the single strongest questionnaire predictor of OSA.</p>
+            <SelectPills value={form.snoring ?? ''} onChange={v => update('snoring', v)}
+              options={['Never', 'Rarely', 'Sometimes', 'Every night']} />
+          </div>
+
+          {/* Oxygen / breathlessness */}
+          <div>
+            <label className="label" style={{ display: 'block', marginBottom: 8 }}>Daytime breathlessness</label>
+            <SelectPills value={form.oxygenCondition ?? 'Normal'} onChange={v => update('oxygenCondition', v)}
+              options={['Normal', 'Mild', 'Moderate (Low SpO2)', 'Unsure']} />
+          </div>
+
+          {/* Medical history */}
+          <div>
+            <label className="label" style={{ display: 'block', marginBottom: 8 }}>Relevant medical history</label>
+            <SelectPills value={form.medicalHistory ?? 'None'} onChange={v => update('medicalHistory', v)}
+              options={['None', 'Hypertension', 'Diabetes', 'Heart disease', 'Obesity', 'Other']} />
           </div>
         </div>
 
