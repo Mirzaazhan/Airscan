@@ -50,6 +50,9 @@ next-env.d.ts
 *.swo
 .vercel
 
+# Session notes — internal only
+airscan-frontend/PROGRESS.md
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
