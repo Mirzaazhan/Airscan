@@ -1,14 +1,32 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useScan } from '@/contexts/ScanContext';
 import { TopBar } from '@/components/ui/TopBar';
 import { IconChevron } from '@/components/ui/Icons';
 
+const FIREBASE_ENABLED = !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+
 export default function SettingsPage() {
   const router = useRouter();
-  const { user } = useScan();
+  const { user, authLoaded } = useScan();
   const initials = (user?.displayName ?? 'AM').split(' ').map(s => s[0]).join('').slice(0, 2);
+
+  useEffect(() => {
+    if (authLoaded && !user) router.replace('/');
+  }, [authLoaded, user, router]);
+
+  if (!authLoaded) return <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', background: 'var(--paper)', color: 'var(--ink-3)', fontSize: 13 }}>Loading…</div>;
+
+  const handleSignOut = async () => {
+    if (FIREBASE_ENABLED) {
+      const { signOut } = await import('firebase/auth');
+      const { auth } = await import('@/lib/firebase');
+      await signOut(auth);
+    }
+    router.push('/');
+  };
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--paper)' }}>
@@ -53,7 +71,7 @@ export default function SettingsPage() {
             </div>
           ))}
 
-          <button className="btn btn-secondary" style={{ width: '100%', marginTop: 12 }} onClick={() => router.push('/')}>
+          <button className="btn btn-secondary" style={{ width: '100%', marginTop: 12 }} onClick={handleSignOut}>
             Sign out
           </button>
 

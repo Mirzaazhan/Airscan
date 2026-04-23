@@ -1,11 +1,41 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { AirscanMark, IconGoogle, IconShield, IconCheck } from '@/components/ui/Icons';
 import { CameraFeed } from '@/components/FaceMesh';
 
+const FIREBASE_ENABLED = !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+
 export default function LandingPage() {
   const router = useRouter();
+  const [signingIn, setSigningIn] = useState(false);
+
+  // Auto-redirect if already signed in
+  useEffect(() => {
+    if (!FIREBASE_ENABLED) return;
+    import('firebase/auth').then(({ onAuthStateChanged }) =>
+      import('@/lib/firebase').then(({ auth }) => {
+        const unsub = onAuthStateChanged(auth, u => { if (u) router.replace('/dashboard'); });
+        return unsub;
+      })
+    );
+  }, [router]);
+
+  const handleSignIn = async () => {
+    if (!FIREBASE_ENABLED) { router.push('/dashboard'); return; }
+    setSigningIn(true);
+    try {
+      const { signInWithPopup } = await import('firebase/auth');
+      const { auth, googleProvider } = await import('@/lib/firebase');
+      await signInWithPopup(auth, googleProvider);
+      router.push('/dashboard');
+    } catch {
+      // user closed popup — do nothing
+    } finally {
+      setSigningIn(false);
+    }
+  };
 
   return (
     <div style={{ minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', background: 'var(--paper)', overflow: 'auto' }}>
@@ -41,8 +71,8 @@ export default function LandingPage() {
             Malaysian primary-care clinics.
           </p>
           <div style={{ display: 'flex', gap: 10, marginTop: 32, flexWrap: 'wrap' }}>
-            <button className="btn btn-primary btn-lg" onClick={() => router.push('/dashboard')}>
-              <IconGoogle /> Sign in with Google
+            <button className="btn btn-primary btn-lg" onClick={handleSignIn} disabled={signingIn}>
+              <IconGoogle /> {signingIn ? 'Signing in…' : 'Sign in with Google'}
             </button>
             <button className="btn btn-secondary btn-lg">Request clinician access</button>
           </div>

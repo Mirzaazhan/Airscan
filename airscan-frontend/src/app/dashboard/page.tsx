@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { TopBar } from '@/components/ui/TopBar';
 import { Disclaimer } from '@/components/ui/Disclaimer';
@@ -35,8 +36,14 @@ function ScanRow({ scan, onClick }: { scan: ScanRecord; onClick: () => void }) {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, scans } = useScan();
+  const { user, authLoaded, scans } = useScan();
   const last = scans[0];
+
+  useEffect(() => {
+    if (authLoaded && !user) router.replace('/');
+  }, [authLoaded, user, router]);
+
+  if (!authLoaded) return <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', background: 'var(--paper)', color: 'var(--ink-3)', fontSize: 13 }}>Loading…</div>;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--paper)' }}>

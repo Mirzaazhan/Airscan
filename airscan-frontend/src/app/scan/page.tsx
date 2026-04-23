@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useScan } from '@/contexts/ScanContext';
 import { predict } from '@/lib/api';
@@ -17,7 +17,13 @@ type ScanStep = 'consent' | 'demographics' | 'scan-instructions' | 'scan' | 'ang
 
 export default function ScanPage() {
   const router = useRouter();
-  const { demographics, setDemographics, captures, addCapture, resetCaptures, setResult, addScan } = useScan();
+  const { user, authLoaded, demographics, setDemographics, captures, addCapture, resetCaptures, setResult, addScan } = useScan();
+
+  useEffect(() => {
+    if (authLoaded && !user) router.replace('/');
+  }, [authLoaded, user, router]);
+
+  if (!authLoaded) return <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', background: 'var(--paper)', color: 'var(--ink-3)', fontSize: 13 }}>Loading…</div>;
 
   const [step, setStep] = useState<ScanStep>('consent');
   const [activeAngle, setActiveAngle] = useState<ScanAngle>('front');

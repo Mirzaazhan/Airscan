@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useScan } from '@/contexts/ScanContext';
 import { TopBar } from '@/components/ui/TopBar';
@@ -100,9 +100,15 @@ function HistoryDetail({ scan, onBack, onDelete }: { scan: ScanRecord; onBack: (
 
 export default function HistoryPage() {
   const router = useRouter();
-  const { scans, deleteScan } = useScan();
+  const { user, authLoaded, scans, deleteScan } = useScan();
   const [filter, setFilter] = useState<'all' | RiskLevel>('all');
   const [selectedScan, setSelectedScan] = useState<ScanRecord | null>(null);
+
+  useEffect(() => {
+    if (authLoaded && !user) router.replace('/');
+  }, [authLoaded, user, router]);
+
+  if (!authLoaded) return <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', background: 'var(--paper)', color: 'var(--ink-3)', fontSize: 13 }}>Loading…</div>;
 
   const filtered = filter === 'all' ? scans : scans.filter(s => s.risk === filter);
   const counts = { all: scans.length, green: scans.filter(s => s.risk === 'green').length, yellow: scans.filter(s => s.risk === 'yellow').length, red: scans.filter(s => s.risk === 'red').length };
