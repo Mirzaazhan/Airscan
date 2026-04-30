@@ -81,7 +81,7 @@ export default function ScanPage() {
         demographics: demo,
         measurements: res.measurements,
       };
-      addScan(scan);
+      await addScan(scan, captures);
       resetCaptures();
       router.push('/results');
     } catch {

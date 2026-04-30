@@ -11,28 +11,40 @@ export default function LandingPage() {
   const router = useRouter();
   const [signingIn, setSigningIn] = useState(false);
 
-  // Auto-redirect if already signed in
+  // Auto-redirect if already signed in; also handle returning redirect sign-in
   useEffect(() => {
     if (!FIREBASE_ENABLED) return;
-    import('firebase/auth').then(({ onAuthStateChanged }) =>
-      import('@/lib/firebase').then(({ auth }) => {
-        const unsub = onAuthStateChanged(auth, u => { if (u) router.replace('/dashboard'); });
-        return unsub;
-      })
-    );
+    let unsub: (() => void) | undefined;
+    (async () => {
+      const { onAuthStateChanged, getRedirectResult } = await import('firebase/auth');
+      const { auth } = await import('@/lib/firebase');
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) { router.replace('/dashboard'); return; }
+      } catch { /* redirect failed — let user try again */ }
+      unsub = onAuthStateChanged(auth, u => { if (u) router.replace('/dashboard'); });
+    })();
+    return () => unsub?.();
   }, [router]);
 
   const handleSignIn = async () => {
     if (!FIREBASE_ENABLED) { router.push('/dashboard'); return; }
     setSigningIn(true);
     try {
-      const { signInWithPopup } = await import('firebase/auth');
+      const { signInWithPopup, signInWithRedirect } = await import('firebase/auth');
       const { auth, googleProvider } = await import('@/lib/firebase');
-      await signInWithPopup(auth, googleProvider);
-      router.push('/dashboard');
-    } catch {
-      // user closed popup — do nothing
-    } finally {
+      try {
+        await signInWithPopup(auth, googleProvider);
+        router.push('/dashboard');
+      } catch (err: unknown) {
+        // Popup blocked on mobile — fall back to redirect
+        if ((err as { code?: string }).code === 'auth/popup-blocked') {
+          await signInWithRedirect(auth, googleProvider);
+          // page navigates away — no further action needed
+        }
+        // auth/popup-closed-by-user → user dismissed, do nothing
+      }
+    } catch { /* ignore */ } finally {
       setSigningIn(false);
     }
   };

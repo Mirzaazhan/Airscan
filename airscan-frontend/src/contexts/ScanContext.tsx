@@ -21,7 +21,7 @@ interface ScanContextValue {
   setResult: (r: PredictResponse) => void;
 
   scans: ScanRecord[];
-  addScan: (s: ScanRecord) => void;
+  addScan: (s: ScanRecord, captures: CapturedFrame[]) => Promise<void>;
   deleteScan: (id: string) => void;
 }
 
@@ -107,14 +107,37 @@ export function ScanProvider({ children }: { children: ReactNode }) {
   const addCapture = useCallback((f: CapturedFrame) => setCaptures(c => [...c, f]), []);
   const resetCaptures = useCallback(() => setCaptures([]), []);
 
-  const addScan = useCallback(async (s: ScanRecord) => {
+  const addScan = useCallback(async (s: ScanRecord, caps: CapturedFrame[]) => {
     if (!FIREBASE_ENABLED || !user || user.uid === 'mock-uid-001') {
       setScans(prev => [s, ...prev]);
       return;
     }
+
+    // Upload captured images to Storage, collect download URLs
+    const imageRefs: Partial<Record<'front' | 'left' | 'right', string>> = {};
+    try {
+      const { ref, uploadString, getDownloadURL } = await import('firebase/storage');
+      const { storage } = await import('@/lib/firebase');
+      await Promise.all(
+        caps
+          .filter(c => c.imageDataUrl)
+          .map(async c => {
+            const storageRef = ref(storage, `users/${user.uid}/scans/${s.id}/${c.angle}.jpg`);
+            await uploadString(storageRef, c.imageDataUrl, 'data_url');
+            imageRefs[c.angle] = await getDownloadURL(storageRef);
+          })
+      );
+    } catch {
+      // Storage upload failure should not block the Firestore write
+    }
+
     const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
     const { db } = await import('@/lib/firebase');
-    await setDoc(doc(db, 'users', user.uid, 'scans', s.id), { ...s, createdAt: serverTimestamp() });
+    await setDoc(doc(db, 'users', user.uid, 'scans', s.id), {
+      ...s,
+      ...(Object.keys(imageRefs).length ? { imageRefs } : {}),
+      createdAt: serverTimestamp(),
+    });
     // onSnapshot will update scans state automatically
   }, [user]);
 

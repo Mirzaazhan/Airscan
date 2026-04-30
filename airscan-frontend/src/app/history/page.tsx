@@ -6,7 +6,6 @@ import { useScan } from '@/contexts/ScanContext';
 import { TopBar } from '@/components/ui/TopBar';
 import { Disclaimer } from '@/components/ui/Disclaimer';
 import { IconChevron, IconDownload, IconTrash, IconArrowLeft } from '@/components/ui/Icons';
-import { CameraFeed } from '@/components/FaceMesh';
 import type { ScanRecord, RiskLevel, ScanAngle } from '@/lib/types';
 
 const RISK_COLORS: Record<RiskLevel, string> = { green: 'var(--sage)', yellow: 'var(--amber)', red: 'var(--terra)' };
@@ -54,7 +53,11 @@ function HistoryDetail({ scan, onBack, onDelete }: { scan: ScanRecord; onBack: (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
           {(['front', 'left', 'right'] as ScanAngle[]).map(a => (
             <div key={a} style={{ position: 'relative', aspectRatio: '3 / 4', background: 'oklch(0.18 0.02 230)', borderRadius: 'var(--r-sm)', overflow: 'hidden' }}>
-              <CameraFeed angle={a} size={220} stability={0.95} />
+              {scan.imageRefs?.[a] ? (
+                <img src={scan.imageRefs[a]} alt={`${a} angle`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', color: 'oklch(0.5 0.02 230)', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>No image</div>
+              )}
               <div style={{ position: 'absolute', bottom: 8, left: 8, padding: '3px 7px', fontSize: 10, fontFamily: 'var(--font-mono)', background: 'rgba(0,0,0,0.6)', color: 'white', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{a}</div>
             </div>
           ))}
