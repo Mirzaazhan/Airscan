@@ -207,6 +207,25 @@
 .fade-in  { animation: fadeIn 0.3s ease; }
 .slide-up { animation: slideUp 0.35s ease; }
 
+/* ── Mobile nav ─────────────────────────────────────────────────────────── */
+.topbar-nav-desktop { display: flex; }
+.topbar-clinic      { display: flex; }
+.topbar-avatar      { display: block; }
+.topbar-hamburger   { display: none !important; }
+
+@media (max-width: 767px) {
+  .topbar-nav-desktop { display: none !important; }
+  .topbar-clinic      { display: none !important; }
+  .topbar-avatar      { display: none !important; }
+  .topbar-hamburger   { display: flex !important; }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+.drawer-slide-in { animation: slideInLeft 0.25s cubic-bezier(0.32, 0.72, 0, 1); }
+
 /* ── Scrollbar ──────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
