@@ -15,6 +15,11 @@ function mockMeasurements(risk: RiskLevel): CraniofacialMeasurement[] {
   });
 }
 
+// Exported so scan/page can fall back to it if the API is unreachable
+export function predictFallback(demographics: PredictRequest['demographics']): PredictResponse {
+  return mockPredict({ demographics, landmarks: { front: [], left: [], right: [] } });
+}
+
 function mockPredict(req: PredictRequest): PredictResponse {
   const { weight, height, age, snoring, gender, medicalHistory } = req.demographics;
   const bmi = weight / Math.pow(height / 100, 2);

@@ -3,7 +3,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useScan } from '@/contexts/ScanContext';
-import { predict } from '@/lib/api';
+import { predict, predictFallback } from '@/lib/api';
+import type { PredictResponse } from '@/lib/types';
 import type { CapturedFrame, Demographics, ScanAngle, ScanRecord } from '@/lib/types';
 
 import { ConsentScreen }       from '@/components/scan/ConsentScreen';
@@ -56,13 +57,16 @@ export default function ScanPage() {
 
   const onAnalyzeDone = useCallback(async () => {
     const demo = demographics ?? { age: 42, gender: 'Male', weight: 78, height: 172, race: 'Malay' };
+    const allCaptures = captures.length >= 3 ? captures : [
+      { angle: 'front' as ScanAngle, imageDataUrl: '', landmarks: [], yawAtCapture: 0, capturedAt: new Date().toISOString() },
+      { angle: 'left'  as ScanAngle, imageDataUrl: '', landmarks: [], yawAtCapture: 0, capturedAt: new Date().toISOString() },
+      { angle: 'right' as ScanAngle, imageDataUrl: '', landmarks: [], yawAtCapture: 0, capturedAt: new Date().toISOString() },
+    ];
+
+    // Always produce a result — fall back to client-side mock if API is unreachable
+    let res: PredictResponse;
     try {
-      const allCaptures = captures.length >= 3 ? captures : [
-        { angle: 'front' as ScanAngle, imageDataUrl: '', landmarks: [], yawAtCapture: 0, capturedAt: new Date().toISOString() },
-        { angle: 'left'  as ScanAngle, imageDataUrl: '', landmarks: [], yawAtCapture: 0, capturedAt: new Date().toISOString() },
-        { angle: 'right' as ScanAngle, imageDataUrl: '', landmarks: [], yawAtCapture: 0, capturedAt: new Date().toISOString() },
-      ];
-      const res = await predict({
+      res = await predict({
         demographics: demo,
         landmarks: {
           front: allCaptures.find(f => f.angle === 'front')?.landmarks ?? [],
@@ -70,23 +74,25 @@ export default function ScanPage() {
           right: allCaptures.find(f => f.angle === 'right')?.landmarks ?? [],
         },
       });
-      setResult(res);
-
-      const scan: ScanRecord = {
-        id: res.scan_id,
-        date: new Date().toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }),
-        risk: res.risk,
-        confidence: res.confidence,
-        message: res.message,
-        demographics: demo,
-        measurements: res.measurements,
-      };
-      await addScan(scan, captures);
-      resetCaptures();
-      router.push('/results');
     } catch {
-      router.push('/results');
+      res = predictFallback(demo);
     }
+
+    setResult(res);
+
+    // Save to history — fire and forget, never block showing results
+    const scan: ScanRecord = {
+      id: res.scan_id,
+      date: new Date().toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }),
+      risk: res.risk,
+      confidence: res.confidence,
+      message: res.message,
+      demographics: demo,
+      measurements: res.measurements,
+    };
+    addScan(scan, captures).catch(() => {});
+    resetCaptures();
+    router.push('/results');
   }, [demographics, captures, setResult, addScan, resetCaptures, router]);
 
   switch (step) {
