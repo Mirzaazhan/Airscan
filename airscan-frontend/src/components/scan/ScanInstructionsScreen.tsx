@@ -14,13 +14,13 @@ export function ScanInstructionsScreen({ onStart, onBack }: Props) {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', overflow: 'auto', padding: '40px 64px', background: 'var(--paper)' }}>
+    <div style={{ minHeight: '100vh', overflow: 'auto', padding: 'clamp(20px, 5vw, 40px) clamp(16px, 5vw, 64px)', background: 'var(--paper)' }}>
       <div style={{ maxWidth: 800, margin: '0 auto' }}>
         <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: 20, paddingLeft: 0 }}>
           <IconArrowLeft size={16} /> Back
         </button>
         <div className="eyebrow" style={{ color: 'var(--petrol)' }}>Step 3 of 4 · Scan preparation</div>
-        <h2 className="serif" style={{ fontSize: 44, margin: '12px 0 8px', lineHeight: 1.08, letterSpacing: '-0.01em' }}>
+        <h2 className="serif" style={{ fontSize: 'clamp(28px, 6vw, 44px)', margin: '12px 0 8px', lineHeight: 1.08, letterSpacing: '-0.01em' }}>
           Three angles, about 60 seconds.
         </h2>
         <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.55, marginBottom: 28, maxWidth: 540 }}>
@@ -28,19 +28,19 @@ export function ScanInstructionsScreen({ onStart, onBack }: Props) {
           for ten consecutive frames.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 28 }}>
           {angles.map((a, i) => (
-            <div key={a.angle} className="card" style={{ padding: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <div key={a.angle} className="card" style={{ padding: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <span className="label">Angle {i + 1}</span>
                 <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>≈ 15s</span>
               </div>
-              <div style={{ position: 'relative', aspectRatio: '3 / 4', background: 'var(--paper-2)', borderRadius: 'var(--r-sm)', overflow: 'hidden', marginBottom: 12 }}>
+              <div style={{ position: 'relative', aspectRatio: '3 / 4', background: 'var(--paper-2)', borderRadius: 'var(--r-sm)', overflow: 'hidden', marginBottom: 10 }}>
                 <FaceSilhouette angle={a.angle} size={200} />
                 <FaceMeshOverlay angle={a.angle} size={200} stability={0.8} active={false} />
               </div>
-              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 3 }}>{a.title}</div>
-              <div style={{ fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.5 }}>{a.desc}</div>
+              <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3 }}>{a.title}</div>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)', lineHeight: 1.5 }}>{a.desc}</div>
             </div>
           ))}
         </div>
