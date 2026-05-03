@@ -36,24 +36,34 @@ export const MEASURE_DEFINITIONS: MeasureDefinition[] = [
 // ── Legacy KEY_LANDMARK_INDICES for backward compat (MediaPipe indices of the 16 landmarks) ──
 export const KEY_LANDMARK_INDICES = ANTHROPOMETRIC_LANDMARKS.map(l => l.mediapipeIndex);
 
-// Returns yaw in degrees. Negative = turned left. Positive = turned right.
+// Returns yaw as a ratio in [-1, +1].
+// Negative = face turned left (nose closer to left face boundary).
+// Positive = face turned right (nose closer to right face boundary).
 export function estimateYaw(landmarks: Array<{ x: number; y: number; z: number }>): number {
-  const nose       = landmarks[4];
-  const leftCheek  = landmarks[234];
-  const rightCheek = landmarks[454];
-  if (!nose || !leftCheek || !rightCheek) return 0;
-  const distLeft  = Math.abs(nose.x - leftCheek.x);
-  const distRight = Math.abs(nose.x - rightCheek.x);
-  const ratio = (distRight - distLeft) / (distRight + distLeft);
-  return ratio * 90;
+  const nose      = landmarks[1];    // nose tip — more forward-stable than index 4
+  const leftEdge  = landmarks[234];
+  const rightEdge = landmarks[454];
+  if (!nose || !leftEdge || !rightEdge) return 0;
+
+  const distLeft  = nose.x - leftEdge.x;
+  const distRight = rightEdge.x - nose.x;
+  const total = distLeft + distRight;
+  if (total < 0.05) return 0;
+
+  return (distRight - distLeft) / total;
 }
 
+// Target zones in the [-1, +1] yaw scale.
+// Left/right are open-ended so users just need to turn far enough — no narrow window to hit.
+export const YAW_ZONES: Record<'front' | 'left' | 'right', [number, number]> = {
+  front: [-0.15,  0.15],
+  left:  [-1.0,  -0.18],
+  right: [ 0.18,  1.0],
+};
+
 export function isInTargetZone(yaw: number, angle: 'front' | 'left' | 'right'): boolean {
-  switch (angle) {
-    case 'front': return yaw >= -10 && yaw <= 10;
-    case 'left':  return yaw >= -55 && yaw <= -40;
-    case 'right': return yaw >= 40  && yaw <= 55;
-  }
+  const [lo, hi] = YAW_ZONES[angle];
+  return yaw >= lo && yaw <= hi;
 }
 
 let faceMeshInstance: unknown = null;

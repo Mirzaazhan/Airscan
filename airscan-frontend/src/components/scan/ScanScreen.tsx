@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { IconX } from '@/components/ui/Icons';
 import { FaceMeshOverlay, FaceSilhouette } from '@/components/FaceMesh';
 import type { ScanAngle, CapturedFrame, LandmarkPoint } from '@/lib/types';
-import { KEY_LANDMARK_INDICES, estimateYaw, isInTargetZone, initMediaPipe } from '@/lib/mediapipe';
+import { KEY_LANDMARK_INDICES, estimateYaw, isInTargetZone, YAW_ZONES, initMediaPipe } from '@/lib/mediapipe';
 
 interface Props {
   angle: ScanAngle;
@@ -35,7 +35,10 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
   const stateRef    = useRef<CaptureState>('loading');
   const stableRef   = useRef(0);
   const capturedRef = useRef(false);
+  const yawEMARef   = useRef(0);
   const angleIdx    = ANGLE_IDX[angle];
+
+  const [estimatedYaw, setEstimatedYaw] = useState(0);
 
   // Keep stateRef in sync
   useEffect(() => { stateRef.current = captureState; }, [captureState]);
@@ -113,7 +116,10 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
           }
 
           setLiveLandmarks(pts);
-          const yaw = estimateYaw(pts);
+          // EMA smoothing — reduces jitter without noticeable lag
+          yawEMARef.current = yawEMARef.current * 0.6 + estimateYaw(pts) * 0.4;
+          const yaw = yawEMARef.current;
+          setEstimatedYaw(yaw);
           const inZone = isInTargetZone(yaw, angle);
           const required = STABLE_FRAMES_REQUIRED[angle];
 
@@ -293,6 +299,43 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
         </div>
       </div>
 
+      {/* Yaw angle indicator */}
+      {captureState !== 'loading' && captureState !== 'error' && captureState !== 'done' && captureState !== 'capturing' && (() => {
+        const [zLo, zHi] = YAW_ZONES[angle];
+        const toPercent = (v: number) => Math.round(((Math.max(-1, Math.min(1, v)) + 1) / 2) * 100);
+        const markerPct  = toPercent(estimatedYaw);
+        const zoneLoPct  = toPercent(zLo);
+        const zoneHiPct  = toPercent(zHi);
+        const inZone     = isInTargetZone(estimatedYaw, angle);
+        return (
+          <div style={{ padding: '0 40px 8px', maxWidth: feedW + 80, margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+            <div style={{ position: 'relative', height: 28, background: 'rgba(255,255,255,0.08)', borderRadius: 14, overflow: 'hidden' }}>
+              {/* Zone highlight */}
+              <div style={{
+                position: 'absolute', top: 0, bottom: 0,
+                left: `${zoneLoPct}%`, width: `${zoneHiPct - zoneLoPct}%`,
+                background: inZone ? 'var(--sage)' : 'var(--petrol)',
+                opacity: 0.45, transition: 'background 0.2s',
+              }} />
+              {/* Labels */}
+              <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 9, fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em' }}>L</span>
+              <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 9, fontFamily: 'var(--font-mono)', color: 'rgba(255,255,255,0.4)', letterSpacing: '0.1em' }}>R</span>
+              {/* Moving marker */}
+              <div style={{
+                position: 'absolute', top: '50%',
+                left: `${markerPct}%`,
+                transform: 'translate(-50%, -50%)',
+                width: 14, height: 14, borderRadius: '50%',
+                background: inZone ? 'var(--sage)' : 'white',
+                boxShadow: '0 0 0 2px rgba(0,0,0,0.35)',
+                transition: 'left 0.06s linear, background 0.2s',
+                zIndex: 2,
+              }} />
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Status strip */}
       <div style={{ padding: '0 40px 32px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', padding: '10px 16px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, maxWidth: 440, margin: '0 auto' }}>
@@ -300,7 +343,7 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
           <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{statusLabel}</span>
           {captureState === 'stabilizing' || captureState === 'detecting' ? (
             <span className="mono" style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', flexShrink: 0 }}>
-              stab {stability.toFixed(2)}
+              yaw {estimatedYaw.toFixed(2)}
             </span>
           ) : null}
         </div>
