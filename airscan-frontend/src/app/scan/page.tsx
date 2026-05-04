@@ -90,7 +90,10 @@ export default function ScanPage() {
       demographics: demo,
       measurements: res.measurements,
     };
-    addScan(scan, captures).catch(() => {});
+    addScan(scan, captures).catch((err: unknown) => {
+      const e = err as { code?: string; message?: string };
+      console.error('[Airscan] addScan failed:', e.code, e.message);
+    });
     resetCaptures();
     router.push('/results');
   }, [demographics, captures, setResult, addScan, resetCaptures, router]);

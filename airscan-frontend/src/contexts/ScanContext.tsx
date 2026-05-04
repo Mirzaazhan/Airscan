@@ -140,11 +140,19 @@ export function ScanProvider({ children }: { children: ReactNode }) {
 
     const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
     const { db } = await import('@/lib/firebase');
-    await setDoc(doc(db, 'users', user.uid, 'scans', s.id), {
-      ...s,
-      ...(Object.keys(imageRefs).length ? { imageRefs } : {}),
-      createdAt: serverTimestamp(),
-    });
+    try {
+      await setDoc(doc(db, 'users', user.uid, 'scans', s.id), {
+        ...s,
+        ...(Object.keys(imageRefs).length ? { imageRefs } : {}),
+        createdAt: serverTimestamp(),
+      });
+      console.log('[Airscan] Firestore scan saved:', s.id);
+    } catch (err: unknown) {
+      const e = err as { code?: string; message?: string };
+      console.error('[Airscan] Firestore write error:', e.code, e.message);
+      // Re-throw so the caller can surface the error
+      throw err;
+    }
     // onSnapshot will update scans state automatically
   }, [user]);
 
