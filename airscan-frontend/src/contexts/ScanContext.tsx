@@ -83,10 +83,17 @@ export function ScanProvider({ children }: { children: ReactNode }) {
             import('firebase/firestore').then(({ collection, query, orderBy, onSnapshot }) => {
               unsubScans?.();
               const q = query(collection(db, 'users', fbUser.uid, 'scans'), orderBy('createdAt', 'desc'));
-              unsubScans = onSnapshot(q, snapshot => {
-                const docs = snapshot.docs.map(d => d.data() as ScanRecord);
-                setScans(docs);
-              });
+              unsubScans = onSnapshot(
+                q,
+                snapshot => {
+                  const docs = snapshot.docs.map(d => d.data() as ScanRecord);
+                  console.log('[Airscan] Firestore scans loaded:', docs.length);
+                  setScans(docs);
+                },
+                err => {
+                  console.error('[Airscan] Firestore read error:', err.code, err.message);
+                }
+              );
             });
           } else {
             setUser(null);
