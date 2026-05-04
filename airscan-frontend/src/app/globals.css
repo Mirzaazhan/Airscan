@@ -207,6 +207,22 @@
 .fade-in  { animation: fadeIn 0.3s ease; }
 .slide-up { animation: slideUp 0.35s ease; }
 
+/* ── Results page ────────────────────────────────────────────────────────── */
+.results-top          { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: start; margin-bottom: 20px; }
+.results-actions      { display: flex; flex-direction: column; gap: 8px; }
+.results-summary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.results-tabs         { display: flex; gap: 4px; margin-bottom: 0; border-bottom: 1px solid var(--line); overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; white-space: nowrap; }
+.results-tabs::-webkit-scrollbar { display: none; }
+.results-measure-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.results-measure-min  { min-width: 480px; }
+
+@media (max-width: 640px) {
+  .results-top                   { grid-template-columns: 1fr; }
+  .results-actions               { flex-direction: row; flex-wrap: wrap; }
+  .results-actions .btn          { flex: 1; min-width: 130px; font-size: 13px; }
+  .results-summary-grid          { grid-template-columns: 1fr; }
+}
+
 /* ── Mobile nav ─────────────────────────────────────────────────────────── */
 .topbar-nav-desktop { display: flex; }
 .topbar-clinic      { display: flex; }

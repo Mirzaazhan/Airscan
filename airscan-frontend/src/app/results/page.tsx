@@ -69,7 +69,7 @@ export default function ResultsPage() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--paper)' }}>
       <TopBar />
-      <div style={{ padding: '32px 40px 60px', overflow: 'auto' }}>
+      <div style={{ padding: 'clamp(16px, 4vw, 32px) clamp(16px, 4vw, 40px) 60px', overflow: 'auto' }}>
         <div style={{ maxWidth: 960, margin: '0 auto' }}>
 
           {/* Header row */}
@@ -81,7 +81,7 @@ export default function ResultsPage() {
           </div>
 
           {/* Top strip: risk badge + action buttons */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 16, alignItems: 'start', marginBottom: 20 }}>
+          <div className="results-top">
             <div className="card" style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 20 }}>
               <div style={{ width: 56, height: 56, borderRadius: '50%', background: c.ring, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
                 <span style={{ color: 'white', fontFamily: 'var(--font-serif)', fontSize: 20, textTransform: 'capitalize' }}>{result.risk[0]}</span>
@@ -92,7 +92,7 @@ export default function ResultsPage() {
                 <p style={{ fontSize: 13, color: 'var(--ink-2)', margin: '6px 0 0', lineHeight: 1.5 }}>{result.message}</p>
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="results-actions">
               <button className="btn btn-primary" onClick={() => router.push('/history')}>
                 <IconCheck size={14} /> Save to history
               </button>
@@ -106,7 +106,7 @@ export default function ResultsPage() {
           </div>
 
           {/* Tabs */}
-          <div style={{ display: 'flex', gap: 4, marginBottom: 0, borderBottom: '1px solid var(--line)' }}>
+          <div className="results-tabs">
             {tabs.map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key)} style={{
                 padding: '10px 18px', fontSize: 13, fontWeight: 500, background: 'none', border: 'none',
@@ -122,7 +122,7 @@ export default function ResultsPage() {
           {/* ── Tab: Summary ── */}
           {activeTab === 'summary' && (
             <div style={{ paddingTop: 20 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div className="results-summary-grid">
                 <div className="card" style={{ padding: 24 }}>
                   <div className="label" style={{ marginBottom: 12 }}>Craniofacial features</div>
                   {[
@@ -187,27 +187,29 @@ export default function ResultsPage() {
             <div style={{ paddingTop: 20 }}>
               {result.measurements && result.measurements.length > 0 ? (
                 <>
-                  <div className="card" style={{ overflow: 'hidden' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 0.8fr 0.6fr', padding: '12px 20px', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)', background: 'var(--paper-2)' }}>
-                      <div>Measurement</div><div>Value</div><div>Normal range</div><div>Flag</div>
-                    </div>
-                    {result.measurements.map((m, i) => (
-                      <div key={m.name} style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 0.8fr 0.6fr', padding: '14px 20px', alignItems: 'center', borderBottom: i < result.measurements!.length - 1 ? '1px solid var(--line-2)' : 'none' }}>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 500 }}>{m.name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2, lineHeight: 1.4 }}>{m.significance}</div>
-                        </div>
-                        <div className="mono" style={{ fontSize: 14, fontWeight: 600, color: FLAG_COLOR[m.flag] }}>
-                          {m.valueMm} mm
-                        </div>
-                        <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{m.norm} mm</div>
-                        <div>
-                          <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, textTransform: 'capitalize', background: m.flag === 'high' ? 'var(--terra-bg)' : m.flag === 'elevated' ? 'var(--amber-bg)' : 'var(--sage-bg)', color: FLAG_COLOR[m.flag] }}>
-                            {m.flag}
-                          </span>
-                        </div>
+                  <div className="card results-measure-wrap" style={{ overflow: 'hidden' }}>
+                    <div className="results-measure-min">
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 0.8fr 0.6fr', padding: '12px 20px', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)', background: 'var(--paper-2)' }}>
+                        <div>Measurement</div><div>Value</div><div>Normal range</div><div>Flag</div>
                       </div>
-                    ))}
+                      {result.measurements.map((m, i) => (
+                        <div key={m.name} style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 0.8fr 0.6fr', padding: '14px 20px', alignItems: 'center', borderBottom: i < result.measurements!.length - 1 ? '1px solid var(--line-2)' : 'none' }}>
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 500 }}>{m.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2, lineHeight: 1.4 }}>{m.significance}</div>
+                          </div>
+                          <div className="mono" style={{ fontSize: 14, fontWeight: 600, color: FLAG_COLOR[m.flag] }}>
+                            {m.valueMm} mm
+                          </div>
+                          <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{m.norm} mm</div>
+                          <div>
+                            <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, textTransform: 'capitalize', background: m.flag === 'high' ? 'var(--terra-bg)' : m.flag === 'elevated' ? 'var(--amber-bg)' : 'var(--sage-bg)', color: FLAG_COLOR[m.flag] }}>
+                              {m.flag}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   <div className="card" style={{ padding: 16, marginTop: 12, fontSize: 12, color: 'var(--ink-3)', lineHeight: 1.6 }}>
                     <strong style={{ color: 'var(--ink-2)' }}>Clinical note:</strong> Bigonial/bizygomatic ratio &lt;0.68 and lower face ratio &gt;0.60 are established OSA structural predictors. Mandibular length is the strongest single anatomical predictor.
@@ -229,7 +231,7 @@ export default function ResultsPage() {
               </div>
               <div className="card" style={{ padding: 16, marginTop: 12 }}>
                 <div className="label" style={{ marginBottom: 10 }}>Landmark index</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8 }}>
                   {['Cranial', 'Airway', 'Jaw', 'Oral', 'Facial', 'Orbital'].map(group => {
                     const groupColors: Record<string, string> = { Cranial: '#00c9a7', Airway: '#ffa94d', Jaw: '#ff5c5c', Oral: '#60a5fa', Facial: '#c084fc', Orbital: '#60a5fa' };
                     return (
@@ -245,7 +247,7 @@ export default function ResultsPage() {
           )}
 
           <div style={{ marginTop: 20 }}><Disclaimer /></div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 10, marginTop: 16, flexWrap: 'wrap', alignItems: 'center' }}>
             <button className="btn btn-ghost" onClick={() => router.push('/history')}>
               <IconHistory size={14} /> View past scans
             </button>
