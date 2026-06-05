@@ -1,6 +1,6 @@
 'use client';
 
-import type { AnthropometricLandmark, MeasureDefinition } from './types';
+import type { AnthropometricLandmark, MeasureDefinition, ScanAngle } from './types';
 
 // ── 16 anthropometric landmarks mapped to MediaPipe FaceMesh indices ──
 // MediaPipe indices are approximate — confirm final list with Dr. Iqmal / Prof. Alfah
@@ -34,7 +34,11 @@ export const MEASURE_DEFINITIONS: MeasureDefinition[] = [
 ];
 
 // ── Legacy KEY_LANDMARK_INDICES for backward compat (MediaPipe indices of the 16 landmarks) ──
-export const KEY_LANDMARK_INDICES = ANTHROPOMETRIC_LANDMARKS.map(l => l.mediapipeIndex);
+export const KEY_LANDMARK_INDICES = Array.from(new Set([
+  ...ANTHROPOMETRIC_LANDMARKS.map(l => l.mediapipeIndex),
+  129, 358, 98, 327, // Nasal Assessment (4 is already in ANTHROPOMETRIC_LANDMARKS)
+  469, 471, 474, 476 // Iris scaling
+]));
 
 // Returns yaw as a ratio in [-1, +1].
 // Negative = face turned left (nose closer to left face boundary).
@@ -55,18 +59,109 @@ export function estimateYaw(landmarks: Array<{ x: number; y: number; z: number }
 
 // Target zones in the [-1, +1] yaw scale.
 // Left/right are open-ended so users just need to turn far enough — no narrow window to hit.
-export const YAW_ZONES: Record<'front' | 'left' | 'right', [number, number]> = {
+export const YAW_ZONES: Record<ScanAngle, [number, number]> = {
   front: [-0.15,  0.15],
-  left:  [-1.0,  -0.18],
-  right: [ 0.18,  1.0],
+  left:  [-5.0,  -0.18],
+  right: [ 0.18,  5.0],
+  mouth_open: [-0.15, 0.15],
+  tongue_out: [-0.15, 0.15],
+  tongue_rest: [-0.15, 0.15],
+  neck: [-0.15, 0.15],
+  nasal: [-0.15, 0.15]
 };
 
-export function isInTargetZone(yaw: number, angle: 'front' | 'left' | 'right'): boolean {
+export function isInTargetZone(yaw: number, angle: ScanAngle): boolean {
   const [lo, hi] = YAW_ZONES[angle];
   return yaw >= lo && yaw <= hi;
 }
 
+export function isMouthOpen(landmarks: Array<{ x: number; y: number; z: number }>): boolean {
+  const upperLip = landmarks[13];
+  const lowerLip = landmarks[14];
+  const menton = landmarks[152];
+  const nasion = landmarks[168];
+  
+  if (!upperLip || !lowerLip || !menton || !nasion) return false;
+  
+  const faceHeight = Math.abs(menton.y - nasion.y);
+  if (faceHeight < 0.01) return false;
+  
+  const mouthOpening = Math.abs(lowerLip.y - upperLip.y);
+  // An opening of > 4% of the face height indicates the mouth is intentionally open
+  return (mouthOpening / faceHeight) > 0.04; 
+}
+
 let faceMeshInstance: unknown = null;
+let poseInstance: unknown = null;
+
+// Estimate pixel-to-mm scale using the average iris diameter = ~11.7mm.
+// FaceMesh left iris: right(469) to left(471)
+// FaceMesh right iris: right(474) to left(476)
+export function estimatePixelScale(landmarks: Array<any>, videoWidth: number, videoHeight: number): number {
+  const getPt = (idx: number) => {
+    if (landmarks.length < 100 && landmarks[0] && 'index' in landmarks[0]) {
+      return landmarks.find((l: any) => l.index === idx);
+    }
+    return landmarks[idx];
+  };
+
+  const leftIrisRight = getPt(469);
+  const leftIrisLeft = getPt(471);
+  const rightIrisRight = getPt(474);
+  const rightIrisLeft = getPt(476);
+  if (!leftIrisRight || !leftIrisLeft || !rightIrisRight || !rightIrisLeft) return 0;
+  
+  const dxLeft = (leftIrisRight.x - leftIrisLeft.x) * videoWidth;
+  const dyLeft = (leftIrisRight.y - leftIrisLeft.y) * videoHeight;
+  const diamLeft = Math.sqrt(dxLeft * dxLeft + dyLeft * dyLeft);
+  
+  const dxRight = (rightIrisRight.x - rightIrisLeft.x) * videoWidth;
+  const dyRight = (rightIrisRight.y - rightIrisLeft.y) * videoHeight;
+  const diamRight = Math.sqrt(dxRight * dxRight + dyRight * dyRight);
+  
+  const avgDiam = (diamLeft + diamRight) / 2;
+  if (avgDiam < 1) return 0;
+  
+  return 11.7 / avgDiam; // mm per pixel
+}
+
+export function estimateNeckMeasurement(
+  faceLandmarks: Array<{ x: number; y: number; z: number }>,
+  poseLandmarks: Array<{ x: number; y: number; z: number; visibility?: number }> | null,
+  videoWidth: number,
+  videoHeight: number
+): { widthMm: number; circumferenceMm: number; scaleMmPerPixel: number; shouldersVisible: boolean } | null {
+  const scale = estimatePixelScale(faceLandmarks, videoWidth, videoHeight);
+  if (!scale) return null;
+
+  let shouldersVisible = false;
+  if (poseLandmarks && poseLandmarks[11] && poseLandmarks[12]) {
+    // Check if both left (11) and right (12) shoulders are visible in frame
+    const v11 = poseLandmarks[11].visibility ?? 0;
+    const v12 = poseLandmarks[12].visibility ?? 0;
+    if (v11 > 0.5 && v12 > 0.5) {
+      shouldersVisible = true;
+    }
+  }
+
+  // Use Bigonial Width (Jaw width, Gonion L 172 to Gonion R 397) as a proxy/baseline for neck width.
+  // Neck is typically ~90-95% of the jaw width in a straight-on profile.
+  const goL = faceLandmarks[172];
+  const goR = faceLandmarks[397];
+  if (!goL || !goR) return null;
+
+  const dx = (goR.x - goL.x) * videoWidth;
+  const dy = (goR.y - goL.y) * videoHeight;
+  const jawPixelWidth = Math.sqrt(dx * dx + dy * dy);
+  
+  const neckPixelWidth = jawPixelWidth * 0.92;
+  const widthMm = neckPixelWidth * scale;
+  
+  // Approximate circumference of a cylinder (C = pi * d)
+  const circumferenceMm = widthMm * Math.PI;
+
+  return { widthMm, circumferenceMm, scaleMmPerPixel: scale, shouldersVisible };
+}
 
 export async function initMediaPipe(onResults: (results: unknown) => void) {
   if (typeof window === 'undefined') return null;
@@ -85,4 +180,29 @@ export async function initMediaPipe(onResults: (results: unknown) => void) {
   return faceMesh;
 }
 
-export function resetMediaPipe() { faceMeshInstance = null; }
+export function resetMediaPipe() { 
+  faceMeshInstance = null; 
+  poseInstance = null;
+}
+
+export async function initPose(onResults: (results: unknown) => void) {
+  if (typeof window === 'undefined') return null;
+  if (poseInstance) {
+    (poseInstance as { onResults: (cb: (r: unknown) => void) => void }).onResults(onResults);
+    return poseInstance;
+  }
+  const { Pose } = await import('@mediapipe/pose');
+  const pose = new Pose({
+    locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
+  });
+  pose.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence: 0.7
+  });
+  pose.onResults(onResults);
+  await pose.initialize();
+  poseInstance = pose;
+  return pose;
+}

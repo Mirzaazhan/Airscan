@@ -1,4 +1,4 @@
-export type ScanAngle = 'front' | 'left' | 'right';
+export type ScanAngle = 'front' | 'left' | 'right' | 'mouth_open' | 'tongue_out' | 'tongue_rest' | 'neck' | 'nasal';
 export type RiskLevel = 'green' | 'yellow' | 'red';
 export type LandmarkGroup = 'Cranial' | 'Airway' | 'Jaw' | 'Oral' | 'Facial' | 'Orbital';
 
@@ -15,6 +15,13 @@ export interface CapturedFrame {
   landmarks: LandmarkPoint[];
   yawAtCapture: number;
   capturedAt: string;
+  neckMeasurement?: NeckMeasurement;
+}
+
+export interface NeckMeasurement {
+  widthMm: number;
+  circumferenceMm: number;
+  scaleMmPerPixel: number;
 }
 
 export interface Demographics {
@@ -23,9 +30,18 @@ export interface Demographics {
   weight: number;
   height: number;
   race: string;
-  snoring?: string;
-  oxygenCondition?: string;
-  medicalHistory?: string;
+}
+
+export interface StopBang {
+  snoring: boolean;
+  tired: boolean;
+  observed: boolean;
+  pressure: boolean;
+  bmi: boolean;
+  age: boolean;
+  neck: boolean;
+  gender: boolean;
+  score: number;
 }
 
 // ── Craniofacial anthropometric landmark (from LMS definitions) ──
@@ -59,6 +75,19 @@ export interface CraniofacialMeasurement {
   flag: 'normal' | 'elevated' | 'high';
 }
 
+export interface NasalAssessment {
+  valveAngleLeft: number;
+  valveAngleRight: number;
+  asymmetryRatio: number;
+  apertureWidthMm: number;
+  flags: {
+    valve: 'normal' | 'high';
+    asymmetry: 'normal' | 'elevated' | 'high';
+    aperture: 'normal' | 'elevated' | 'high';
+  };
+  overallRisk: 'low' | 'moderate' | 'high';
+}
+
 // ── Smart watch sleep data (ready for Fitbit/Garmin OAuth) ──
 export interface SleepData {
   brand: string;
@@ -79,10 +108,16 @@ export interface SleepData {
 
 export interface PredictRequest {
   demographics: Demographics;
+  stopBang: StopBang;
   landmarks: {
     front: LandmarkPoint[];
     left: LandmarkPoint[];
     right: LandmarkPoint[];
+    mouth_open?: LandmarkPoint[];
+    tongue_out?: LandmarkPoint[];
+    tongue_rest?: LandmarkPoint[];
+    neck?: LandmarkPoint[];
+    nasal?: LandmarkPoint[];
   };
 }
 
@@ -92,6 +127,9 @@ export interface PredictResponse {
   message: string;
   scan_id: string;
   measurements?: CraniofacialMeasurement[];
+  neckMeasurement?: NeckMeasurement;
+  mallampatiScore?: number;
+  nasalAssessment?: NasalAssessment;
 }
 
 export interface ScanRecord {
@@ -101,9 +139,12 @@ export interface ScanRecord {
   confidence: number;
   message: string;
   demographics: Demographics;
+  stopBang?: StopBang;
   measurements?: CraniofacialMeasurement[];
+  neckMeasurement?: NeckMeasurement;
+  nasalAssessment?: NasalAssessment;
   sleepData?: SleepData;
-  imageRefs?: { front: string; left: string; right: string };
+  imageRefs?: { front: string; left: string; right: string; mouth_open?: string; tongue_out?: string; tongue_rest?: string; neck?: string; nasal?: string };
 }
 
 export interface UserProfile {

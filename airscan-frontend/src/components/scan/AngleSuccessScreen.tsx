@@ -10,7 +10,7 @@ interface Props {
   onNext: () => void;
 }
 
-const ANGLE_LABELS: Record<ScanAngle, string> = { front: 'Face forward', left: 'Left profile', right: 'Right profile' };
+const ANGLE_LABELS: Record<ScanAngle, string> = { front: 'Face forward', left: 'Left profile', right: 'Right profile', mouth_open: 'Mouth Open', tongue_out: 'Tongue Protrusion', tongue_rest: 'Tongue at Rest', neck: 'Neck Scan', nasal: 'Nasal Scan' };
 
 export function AngleSuccessScreen({ capturedAngles, nextAngle, onNext }: Props) {
   return (
@@ -21,14 +21,14 @@ export function AngleSuccessScreen({ capturedAngles, nextAngle, onNext }: Props)
         </div>
         <div className="eyebrow" style={{ color: 'var(--sage-ink)' }}>Angle captured</div>
         <h2 className="serif" style={{ fontSize: 38, margin: '10px 0 8px', letterSpacing: '-0.01em' }}>
-          {capturedAngles.length} of 3 angles complete.
+          {capturedAngles.length} of 8 angles complete.
         </h2>
         <p style={{ fontSize: 15, color: 'var(--ink-3)', margin: '0 0 28px' }}>
           Next: <strong style={{ color: 'var(--ink)' }}>{ANGLE_LABELS[nextAngle]}</strong>
         </p>
 
-        <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginBottom: 28 }}>
-          {(['front', 'left', 'right'] as ScanAngle[]).map(a => {
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 12, marginBottom: 28 }}>
+          {(['front', 'left', 'right', 'mouth_open', 'tongue_out', 'tongue_rest', 'neck', 'nasal'] as ScanAngle[]).map(a => {
             const done = capturedAngles.includes(a);
             const next = a === nextAngle;
             return (
@@ -42,7 +42,7 @@ export function AngleSuccessScreen({ capturedAngles, nextAngle, onNext }: Props)
                   <FaceSilhouette angle={a} size={60} />
                 </div>
                 <div style={{ fontSize: 11, marginTop: 6, fontWeight: 500, textTransform: 'capitalize', color: done ? 'var(--sage-ink)' : next ? 'var(--petrol-ink)' : 'var(--ink-3)' }}>
-                  {done ? '✓ ' : next ? '→ ' : ''}{a}
+                  {done ? '✓ ' : next ? '→ ' : ''}{a.replace('_', ' ')}
                 </div>
               </div>
             );

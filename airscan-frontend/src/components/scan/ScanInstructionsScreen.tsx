@@ -7,33 +7,38 @@ import type { ScanAngle } from '@/lib/types';
 interface Props { onStart: () => void; onBack: () => void; }
 
 export function ScanInstructionsScreen({ onStart, onBack }: Props) {
-  const angles: { angle: ScanAngle; title: string; desc: string }[] = [
-    { angle: 'front', title: 'Face forward',  desc: 'Look directly at the camera with a neutral expression.' },
-    { angle: 'left',  title: 'Turn left',     desc: 'Slowly rotate your head 90° to your left.' },
-    { angle: 'right', title: 'Turn right',    desc: 'Return to center, then rotate 90° to your right.' },
+  const angles: { angle: ScanAngle; title: string; desc: string; time: string }[] = [
+    { angle: 'front',       title: 'Face forward',     desc: 'Look directly at the camera with a neutral expression.',         time: '≈ 15s' },
+    { angle: 'left',        title: 'Turn left',         desc: 'Slowly rotate your head 90° to your left.',                     time: '≈ 15s' },
+    { angle: 'right',       title: 'Turn right',        desc: 'Return to center, then rotate 90° to your right.',              time: '≈ 15s' },
+    { angle: 'mouth_open',  title: 'Mouth open',        desc: 'Open as wide as possible and say "Ahhh".',                      time: '≈ 15s' },
+    { angle: 'tongue_out',  title: 'Tongue out',        desc: 'Stick your tongue out as far as comfortable.',                  time: '≈ 15s' },
+    { angle: 'tongue_rest', title: 'Tongue at rest',    desc: 'Keep mouth open with tongue relaxed inside.',                   time: '≈ 15s' },
+    { angle: 'neck',        title: 'Neck scan',         desc: 'Face forward with shoulders visible in frame.',                 time: '≈ 20s' },
+    { angle: 'nasal',       title: 'Nasal scan',        desc: 'Tilt your head slightly back to expose your nostrils.',         time: '≈ 15s' },
   ];
 
   return (
     <div style={{ minHeight: '100vh', overflow: 'auto', padding: 'clamp(20px, 5vw, 40px) clamp(16px, 5vw, 64px)', background: 'var(--paper)' }}>
-      <div style={{ maxWidth: 800, margin: '0 auto' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
         <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: 20, paddingLeft: 0 }}>
           <IconArrowLeft size={16} /> Back
         </button>
-        <div className="eyebrow" style={{ color: 'var(--petrol)' }}>Step 3 of 4 · Scan preparation</div>
+        <div className="eyebrow" style={{ color: 'var(--petrol)' }}>Step 4 of 4 · Scan preparation</div>
         <h2 className="serif" style={{ fontSize: 'clamp(28px, 6vw, 44px)', margin: '12px 0 8px', lineHeight: 1.08, letterSpacing: '-0.01em' }}>
-          Three angles, about 60 seconds.
+          Eight angles, about 2 minutes.
         </h2>
         <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.55, marginBottom: 28, maxWidth: 540 }}>
           Hold still for each angle — the scan captures automatically once your face is stable
           for ten consecutive frames.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12, marginBottom: 28 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 28 }}>
           {angles.map((a, i) => (
             <div key={a.angle} className="card" style={{ padding: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                 <span className="label">Angle {i + 1}</span>
-                <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>≈ 15s</span>
+                <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{a.time}</span>
               </div>
               <div style={{ position: 'relative', aspectRatio: '3 / 4', background: 'var(--paper-2)', borderRadius: 'var(--r-sm)', overflow: 'hidden', marginBottom: 10 }}>
                 <FaceSilhouette angle={a.angle} size={200} />

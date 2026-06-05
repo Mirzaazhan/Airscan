@@ -6,10 +6,15 @@ import { useScan } from '@/contexts/ScanContext';
 import { TopBar } from '@/components/ui/TopBar';
 import { Disclaimer } from '@/components/ui/Disclaimer';
 import { IconChevron, IconDownload, IconTrash, IconArrowLeft } from '@/components/ui/Icons';
-import type { ScanRecord, RiskLevel, ScanAngle } from '@/lib/types';
+import { downloadPDF } from '@/lib/pdf';
+import type { ScanRecord, RiskLevel, ScanAngle, CraniofacialMeasurement } from '@/lib/types';
 
 const RISK_COLORS: Record<RiskLevel, string> = { green: 'var(--sage)', yellow: 'var(--amber)', red: 'var(--terra)' };
 const RISK_BG:     Record<RiskLevel, string> = { green: 'var(--sage-bg)', yellow: 'var(--amber-bg)', red: 'var(--terra-bg)' };
+
+const FLAG_COLOR: Record<CraniofacialMeasurement['flag'], string> = {
+  normal: 'var(--sage)', elevated: 'var(--amber)', high: 'var(--terra)',
+};
 
 function HistoryRow({ scan, onClick }: { scan: ScanRecord; onClick: () => void }) {
   return (
@@ -31,6 +36,26 @@ function HistoryRow({ scan, onClick }: { scan: ScanRecord; onClick: () => void }
 
 function HistoryDetail({ scan, onBack, onDelete }: { scan: ScanRecord; onBack: () => void; onDelete: (s: ScanRecord) => void }) {
   const c = RISK_COLORS[scan.risk];
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    setPdfLoading(true);
+    try {
+      await downloadPDF({
+        scanId: scan.id,
+        date: scan.date,
+        risk: scan.risk,
+        confidence: scan.confidence,
+        message: scan.message,
+        demographics: scan.demographics,
+        stopBang: scan.stopBang,
+        measurements: scan.measurements,
+      });
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
   return (
     <div>
       <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: 16, paddingLeft: 0 }}>
@@ -43,22 +68,24 @@ function HistoryDetail({ scan, onBack, onDelete }: { scan: ScanRecord; onBack: (
           <span className="mono" style={{ fontSize: 12, color: 'var(--ink-3)' }}>ID {scan.id}</span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary"><IconDownload size={14} /> PDF</button>
+          <button className="btn btn-secondary" onClick={handleDownloadPDF} disabled={pdfLoading}>
+            <IconDownload size={14} /> {pdfLoading ? 'Generating…' : 'PDF'}
+          </button>
           <button className="btn btn-secondary" onClick={() => onDelete(scan)}><IconTrash size={14} /> Delete</button>
         </div>
       </div>
 
       <div className="card" style={{ padding: 20, marginBottom: 16 }}>
         <div className="label" style={{ marginBottom: 12 }}>Captured angles</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
-          {(['front', 'left', 'right'] as ScanAngle[]).map(a => (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+          {(['front', 'left', 'right', 'mouth_open', 'tongue_out', 'tongue_rest', 'neck', 'nasal'] as ScanAngle[]).map(a => (
             <div key={a} style={{ position: 'relative', aspectRatio: '3 / 4', background: 'oklch(0.18 0.02 230)', borderRadius: 'var(--r-sm)', overflow: 'hidden' }}>
               {scan.imageRefs?.[a] ? (
                 <img src={scan.imageRefs[a]} alt={`${a} angle`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               ) : (
-                <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', color: 'oklch(0.5 0.02 230)', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>No image</div>
+                <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center', color: 'oklch(0.5 0.02 230)', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', textAlign: 'center', padding: 8 }}>No image</div>
               )}
-              <div style={{ position: 'absolute', bottom: 8, left: 8, padding: '3px 7px', fontSize: 10, fontFamily: 'var(--font-mono)', background: 'rgba(0,0,0,0.6)', color: 'white', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{a}</div>
+              <div style={{ position: 'absolute', bottom: 8, left: 8, padding: '3px 7px', fontSize: 10, fontFamily: 'var(--font-mono)', background: 'rgba(0,0,0,0.6)', color: 'white', borderRadius: 3, textTransform: 'uppercase', letterSpacing: '0.1em' }}>{a.replace('_', ' ')}</div>
             </div>
           ))}
         </div>
@@ -96,6 +123,59 @@ function HistoryDetail({ scan, onBack, onDelete }: { scan: ScanRecord; onBack: (
           </div>
         </div>
       </div>
+
+      {scan.nasalAssessment && (
+        <div className="card" style={{ padding: 24, marginBottom: 16 }}>
+          <div className="label" style={{ marginBottom: 12 }}>Nasal assessment</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
+            {[
+              ['Aperture Width', `${scan.nasalAssessment.apertureWidthMm.toFixed(1)} mm`, scan.nasalAssessment.flags.aperture],
+              ['Valve Angle (L)', `${scan.nasalAssessment.valveAngleLeft.toFixed(1)}°`, scan.nasalAssessment.valveAngleLeft < 10 ? 'high' : 'normal'],
+              ['Valve Angle (R)', `${scan.nasalAssessment.valveAngleRight.toFixed(1)}°`, scan.nasalAssessment.valveAngleRight < 10 ? 'high' : 'normal'],
+              ['Nostril Asymmetry', scan.nasalAssessment.asymmetryRatio.toFixed(2), scan.nasalAssessment.flags.asymmetry],
+            ].map(([name, val, flag]) => {
+              const fc = flag === 'high' ? 'var(--terra)' : flag === 'elevated' ? 'var(--amber)' : 'var(--sage)';
+              return (
+                <div key={String(name)} style={{ padding: 12, background: 'var(--paper-2)', borderRadius: 8 }}>
+                  <div style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 4 }}>{String(name)}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span className="mono" style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{String(val)}</span>
+                    <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 4, background: `${fc}-bg`, color: fc }}>{String(flag)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {scan.measurements && scan.measurements.length > 0 && (
+        <div className="card results-measure-wrap" style={{ overflow: 'hidden', marginBottom: 16 }}>
+          <div className="results-measure-min">
+            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 0.8fr 0.6fr', padding: '12px 20px', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)', background: 'var(--paper-2)' }}>
+              <div>Measurement</div><div>Value</div><div>Normal range</div><div>Flag</div>
+            </div>
+            {scan.measurements.map((m, i) => (
+              <div key={m.name} style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 0.8fr 0.6fr', padding: '14px 20px', alignItems: 'center', borderBottom: i < scan.measurements!.length - 1 ? '1px solid var(--line-2)' : 'none' }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{m.name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2, lineHeight: 1.4 }}>{m.significance}</div>
+                </div>
+                <div className="mono" style={{ fontSize: 14, fontWeight: 600, color: FLAG_COLOR[m.flag] }}>
+                  {m.valueMm} mm
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{m.norm} mm</div>
+                <div>
+                  <span style={{ padding: '3px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600, textTransform: 'capitalize', background: m.flag === 'high' ? 'var(--terra-bg)' : m.flag === 'elevated' ? 'var(--amber-bg)' : 'var(--sage-bg)', color: FLAG_COLOR[m.flag] }}>
+                    {m.flag}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ marginTop: 16 }}><Disclaimer /></div>
     </div>
   );

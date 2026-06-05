@@ -106,16 +106,17 @@ export function FaceSilhouette({ angle = 'front', size = 300, dark = false }: { 
   const fg  = dark ? 'rgba(255,255,255,0.08)' : 'oklch(0.86 0.015 230)';
   const fg2 = dark ? 'rgba(255,255,255,0.12)' : 'oklch(0.8 0.02 230)';
   const S = size, H = S * 1.2;
-  const paths = {
+  const paths: Record<string, string> = {
     front: `M ${S*0.5} ${S*0.12} C ${S*0.72} ${S*0.13}, ${S*0.78} ${S*0.3}, ${S*0.78} ${S*0.5} C ${S*0.78} ${S*0.72}, ${S*0.66} ${S*0.88}, ${S*0.5} ${S*0.9} C ${S*0.34} ${S*0.88}, ${S*0.22} ${S*0.72}, ${S*0.22} ${S*0.5} C ${S*0.22} ${S*0.3}, ${S*0.28} ${S*0.13}, ${S*0.5} ${S*0.12} Z`,
     left:  `M ${S*0.66} ${S*0.14} C ${S*0.8} ${S*0.18}, ${S*0.84} ${S*0.36}, ${S*0.8} ${S*0.55} C ${S*0.78} ${S*0.72}, ${S*0.72} ${S*0.87}, ${S*0.58} ${S*0.9} L ${S*0.35} ${S*0.88} C ${S*0.3} ${S*0.7}, ${S*0.28} ${S*0.52}, ${S*0.3} ${S*0.4} C ${S*0.34} ${S*0.25}, ${S*0.48} ${S*0.14}, ${S*0.66} ${S*0.14} Z`,
     right: `M ${S*0.34} ${S*0.14} C ${S*0.2} ${S*0.18}, ${S*0.16} ${S*0.36}, ${S*0.2} ${S*0.55} C ${S*0.22} ${S*0.72}, ${S*0.28} ${S*0.87}, ${S*0.42} ${S*0.9} L ${S*0.65} ${S*0.88} C ${S*0.7} ${S*0.7}, ${S*0.72} ${S*0.52}, ${S*0.7} ${S*0.4} C ${S*0.66} ${S*0.25}, ${S*0.52} ${S*0.14}, ${S*0.34} ${S*0.14} Z`,
   };
+  const d = paths[angle] || paths.front;
   return (
     <svg width="100%" height="100%" viewBox={`0 0 ${S} ${H}`}
       preserveAspectRatio="xMidYMid slice"
       style={{ position: 'absolute', inset: 0 }}>
-      <path d={paths[angle]} fill={fg} stroke={fg2} strokeWidth="1"/>
+      <path d={d} fill={fg} stroke={fg2} strokeWidth="1"/>
     </svg>
   );
 }

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { IconX } from '@/components/ui/Icons';
 import { FaceMeshOverlay, FaceSilhouette } from '@/components/FaceMesh';
 import type { ScanAngle, CapturedFrame, LandmarkPoint } from '@/lib/types';
-import { KEY_LANDMARK_INDICES, estimateYaw, isInTargetZone, YAW_ZONES, initMediaPipe } from '@/lib/mediapipe';
+import { KEY_LANDMARK_INDICES, estimateYaw, isInTargetZone, isMouthOpen, YAW_ZONES, initMediaPipe, initPose, estimateNeckMeasurement } from '@/lib/mediapipe';
 
 interface Props {
   angle: ScanAngle;
@@ -13,19 +13,21 @@ interface Props {
   capturedCount: number;
 }
 
-type CaptureState = 'loading' | 'detecting' | 'stabilizing' | 'capturing' | 'done' | 'error';
+type CaptureState = 'loading' | 'detecting' | 'stabilizing' | 'countdown' | 'capturing' | 'done' | 'error';
 
-const STABLE_FRAMES_REQUIRED: Record<ScanAngle, number> = { front: 10, left: 8, right: 8 };
-const ANGLE_LABELS: Record<ScanAngle, string> = { front: 'Face forward', left: 'Turn your head left', right: 'Turn your head right' };
-const ANGLE_SUBS:   Record<ScanAngle, string> = { front: 'Look directly at the camera', left: 'Rotate ~45° to your left', right: 'Rotate ~45° to your right' };
-const ANGLE_IDX:    Record<ScanAngle, number> = { front: 0, left: 1, right: 2 };
+const STABLE_FRAMES_REQUIRED: Record<ScanAngle, number> = { front: 10, left: 8, right: 8, mouth_open: 10, tongue_out: 10, tongue_rest: 10, neck: 10, nasal: 10 };
+const ANGLE_LABELS: Record<ScanAngle, string> = { front: 'Face forward', left: 'Turn your head left', right: 'Turn your head right', mouth_open: 'Mouth Open (Ahhh)', tongue_out: 'Tongue Protrusion', tongue_rest: 'Tongue at Rest', neck: 'Neck Scan', nasal: 'Nasal Scan' };
+const ANGLE_SUBS:   Record<ScanAngle, string> = { front: 'Look directly at the camera', left: 'Rotate ~90° to your left for a full profile', right: 'Rotate ~90° to your right for a full profile', mouth_open: 'Open your mouth as wide as possible and say “Ahhh” — this determines your Mallampati class', tongue_out: 'Stick your tongue out as far as comfortable', tongue_rest: 'Keep mouth open with tongue relaxed inside', neck: 'Keep shoulders visible and face forward', nasal: 'Tilt head slightly back to expose nostrils' };
+const ANGLE_IDX:    Record<ScanAngle, number> = { front: 0, left: 1, right: 2, mouth_open: 3, tongue_out: 4, tongue_rest: 5, neck: 6, nasal: 7 };
 
 export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
   const [captureState, setCaptureState] = useState<CaptureState>('loading');
   const [stability, setStability] = useState(0);
   const [stableFrames, setStableFrames] = useState(0);
+  const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [liveLandmarks, setLiveLandmarks] = useState<Array<{ x: number; y: number; z: number }>>([]);
+  const livePoseLandmarksRef = useRef<Array<{ x: number; y: number; z: number; visibility?: number }> | null>(null);
 
   const videoRef    = useRef<HTMLVideoElement>(null);
   const canvasRef   = useRef<HTMLCanvasElement>(null);
@@ -35,6 +37,7 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
   const stateRef    = useRef<CaptureState>('loading');
   const stableRef   = useRef(0);
   const capturedRef = useRef(false);
+  const countdownStartRef = useRef(0);
   const yawEMARef   = useRef(0);
   const angleIdx    = ANGLE_IDX[angle];
 
@@ -66,12 +69,25 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
       z: landmarks[i]?.z ?? 0,
     }));
 
+    let neckMeasurement = undefined;
+    if (angle === 'neck') {
+      const measurement = estimateNeckMeasurement(landmarks, livePoseLandmarksRef.current, canvas.width, canvas.height);
+      if (measurement) {
+        neckMeasurement = {
+          widthMm: measurement.widthMm,
+          circumferenceMm: measurement.circumferenceMm,
+          scaleMmPerPixel: measurement.scaleMmPerPixel
+        };
+      }
+    }
+
     return {
       angle,
       imageDataUrl,
       landmarks: keyLandmarks,
       yawAtCapture: estimateYaw(landmarks),
       capturedAt: new Date().toISOString(),
+      neckMeasurement,
     };
   }, [angle]);
 
@@ -100,6 +116,7 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
 
       // 2. Init MediaPipe
       let mp: Awaited<ReturnType<typeof initMediaPipe>>;
+      let poseMesh: { send: (opts: { image: HTMLVideoElement }) => Promise<void> } | null = null;
       try {
         mp = await initMediaPipe((results: unknown) => {
           if (cancelled || stateRef.current === 'done') return;
@@ -123,11 +140,29 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
           const inZone = isInTargetZone(yaw, angle);
           const required = STABLE_FRAMES_REQUIRED[angle];
 
-          if (!inZone) {
+          let mouthReady = true;
+          if (angle === 'mouth_open' || angle === 'tongue_out' || angle === 'tongue_rest') {
+            mouthReady = isMouthOpen(pts);
+          }
+
+          let neckReady = true;
+          if (angle === 'neck') {
+            const measurement = estimateNeckMeasurement(pts, livePoseLandmarksRef.current, videoRef.current?.videoWidth || 640, videoRef.current?.videoHeight || 480);
+            if (!measurement || !measurement.shouldersVisible) {
+              neckReady = false;
+            }
+          }
+
+          let inCountdown = stateRef.current === 'countdown';
+
+          if (!inZone || !mouthReady || !neckReady) {
             stableRef.current = 0;
             setStableFrames(0);
             setStability(Math.max(0, stableRef.current / required));
-            setCaptureState(prev => prev === 'stabilizing' ? 'detecting' : prev);
+            if (inCountdown) {
+              setCountdownValue(null);
+            }
+            setCaptureState(prev => (prev === 'stabilizing' || prev === 'countdown') ? 'detecting' : prev);
             return;
           }
 
@@ -141,22 +176,46 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
             setCaptureState('stabilizing');
           }
 
-          if (sf >= required && !capturedRef.current) {
-            capturedRef.current = true;
-            setCaptureState('capturing');
+          if (sf >= required && stateRef.current !== 'countdown' && stateRef.current !== 'capturing' && !capturedRef.current) {
+            setCaptureState('countdown');
+            countdownStartRef.current = performance.now();
+            inCountdown = true;
+          }
 
-            // Flash then capture
-            setTimeout(() => {
-              if (cancelled) return;
-              const frame = captureFrame(pts);
-              setCaptureState('done');
-              setTimeout(() => { if (!cancelled) onCapture(frame); }, 600);
-            }, 200);
+          if (inCountdown) {
+            const elapsed = performance.now() - countdownStartRef.current;
+            const remaining = Math.ceil((3000 - elapsed) / 1000);
+            if (remaining > 0) {
+              setCountdownValue(remaining);
+            } else if (!capturedRef.current) {
+              capturedRef.current = true;
+              setCountdownValue(null);
+              setCaptureState('capturing');
+
+              // Flash then capture
+              setTimeout(() => {
+                if (cancelled) return;
+                const frame = captureFrame(pts);
+                setCaptureState('done');
+                setTimeout(() => { if (!cancelled) onCapture(frame); }, 600);
+              }, 200);
+            }
           }
         });
+
+        if (angle === 'neck') {
+          const p = await initPose((results: unknown) => {
+            if (cancelled || stateRef.current === 'done') return;
+            const r = results as { poseLandmarks?: Array<{ x: number; y: number; z: number; visibility?: number }> };
+            if (r.poseLandmarks) {
+              livePoseLandmarksRef.current = r.poseLandmarks;
+            }
+          });
+          poseMesh = p as { send: (opts: { image: HTMLVideoElement }) => Promise<void> } | null;
+        }
       } catch {
         if (cancelled) return;
-        setErrorMsg('Failed to initialise face detection. Please refresh and try again.');
+        setErrorMsg('Failed to initialise detection models. Please refresh and try again.');
         setCaptureState('error');
         return;
       }
@@ -166,13 +225,19 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
       setCaptureState('detecting');
 
       // 3. RAF send loop
-      let sending = false;
+      let sendingFace = false;
+      let sendingPose = false;
       const loop = async () => {
         if (cancelled || stateRef.current === 'done') return;
-        if (!sending && video.readyState >= 2) {
-          sending = true;
-          try { await faceMesh?.send({ image: video }); } catch { /* ignore */ }
-          sending = false;
+        if (video.readyState >= 2) {
+          if (!sendingFace) {
+            sendingFace = true;
+            faceMesh?.send({ image: video }).catch(() => {}).finally(() => { sendingFace = false; });
+          }
+          if (angle === 'neck' && !sendingPose && poseMesh) {
+            sendingPose = true;
+            poseMesh.send({ image: video }).catch(() => {}).finally(() => { sendingPose = false; });
+          }
         }
         rafRef.current = requestAnimationFrame(loop);
       };
@@ -188,7 +253,7 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
 
   const statusColor = captureState === 'done' || captureState === 'capturing'
     ? 'var(--sage)'
-    : captureState === 'stabilizing' ? 'var(--amber)'
+    : captureState === 'stabilizing' || captureState === 'countdown' ? 'var(--amber)'
     : captureState === 'error'       ? 'var(--terra)'
     : 'var(--ink-4)';
 
@@ -198,6 +263,7 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
     : captureState === 'error'     ? errorMsg
     : captureState === 'done'      ? 'Captured ✓'
     : captureState === 'capturing' ? 'Capturing…'
+    : captureState === 'countdown' ? `Hold still! Capturing in ${countdownValue}…`
     : captureState === 'stabilizing' ? `Hold still · ${stableFrames}/${required}`
     : 'Align your face in the frame';
 
@@ -217,23 +283,72 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
           <IconX size={16} /> Cancel
         </button>
         <div style={{ display: 'flex', gap: 6 }}>
-          {[0, 1, 2].map(i => (
-            <div key={i} style={{ height: 3, width: 32, borderRadius: 2, background: i < capturedCount ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.25)', position: 'relative', overflow: 'hidden' }}>
+          {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
+            <div key={i} style={{ height: 3, width: 24, borderRadius: 2, background: i < capturedCount ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.25)', position: 'relative', overflow: 'hidden' }}>
               {i === angleIdx && captureState !== 'done' && (
                 <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${stability * 100}%`, background: 'white', transition: 'width 0.15s' }} />
               )}
             </div>
           ))}
         </div>
-        <div className="mono" style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{angleIdx + 1} / 3</div>
+        <div className="mono" style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{angleIdx + 1} / 8</div>
       </div>
 
       {/* Instruction */}
       <div style={{ padding: '0 40px', textAlign: 'center' }}>
-        <div className="eyebrow" style={{ color: 'rgba(255,255,255,0.5)' }}>{angle.toUpperCase()} · Angle {angleIdx + 1} of 3</div>
+        <div className="eyebrow" style={{ color: 'rgba(255,255,255,0.5)' }}>{angle.toUpperCase().replace('_', ' ')} · Angle {angleIdx + 1} of 8</div>
         <h2 className="serif" style={{ fontSize: 40, margin: '8px 0 6px', letterSpacing: '-0.01em' }}>{ANGLE_LABELS[angle]}</h2>
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{ANGLE_SUBS[angle]}</p>
       </div>
+
+      {/* Mallampati helper — only shown on mouth_open step */}
+      {angle === 'mouth_open' && (
+        <div style={{ padding: '0 40px', maxWidth: 540, margin: '12px auto 0', width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,165,77,0.5)', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+            {/* Warning icon */}
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(255,165,77,0.2)', border: '1px solid rgba(255,165,77,0.6)', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: 2 }}>
+              <span style={{ fontSize: 15 }}>💡</span>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#ffa94d', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Mallampati Classification — Step 4 of 7</div>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.7 }}>
+                This step measures your <strong style={{ color: 'white' }}>airway openness</strong>. Open your mouth <em>as wide as possible</em> and tilt your head slightly back so your throat is visible.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 12px', marginTop: 10 }}>
+                {[
+                  ['Class 1 · Low Risk', 'Uvula &amp; fauces fully visible'],
+                  ['Class 2 · Moderate', 'Uvula partially visible'],
+                  ['Class 3 · High Risk', 'Only soft palate visible'],
+                  ['Class 4 · High Risk', 'Hard palate only'],
+                ].map(([cls, desc]) => (
+                  <div key={cls} style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', lineHeight: 1.4 }}>
+                    <span style={{ color: cls.includes('Low') ? '#00c9a7' : cls.includes('Moderate') ? '#ffa94d' : '#ff5c5c', fontWeight: 600 }}>{cls}</span>
+                    <br /><span dangerouslySetInnerHTML={{ __html: desc }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Nasal Assessment helper — only shown on nasal step */}
+      {angle === 'nasal' && (
+        <div style={{ padding: '0 40px', maxWidth: 540, margin: '12px auto 0', width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(0,201,167,0.5)', borderRadius: 12, padding: '14px 16px', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,201,167,0.2)', border: '1px solid rgba(0,201,167,0.6)', display: 'grid', placeItems: 'center', flexShrink: 0, marginTop: 2 }}>
+              <span style={{ fontSize: 15 }}>👃</span>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#00c9a7', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 6 }}>Nasal Assessment — Step 8 of 8</div>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)', margin: 0, lineHeight: 1.7 }}>
+                We will measure your <strong style={{ color: 'white' }}>internal nasal valve angle, aperture width, and asymmetry</strong>. 
+                Tilt your head slightly back so your nostrils are clearly visible to the camera.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Camera viewport */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: '24px 0' }}>
@@ -282,6 +397,15 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
             }} />
           ))}
 
+          {/* Countdown Overlay */}
+          {captureState === 'countdown' && countdownValue !== null && (
+            <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none', background: 'rgba(0,0,0,0.1)' }}>
+              <div style={{ fontSize: 120, fontWeight: 700, color: 'white', textShadow: '0 4px 24px rgba(0,0,0,0.5)', animation: 'pulse 1s infinite ease-in-out', fontFamily: 'var(--font-sans)' }}>
+                {countdownValue}
+              </div>
+            </div>
+          )}
+
           {/* Capture flash */}
           {captureState === 'capturing' && (
             <div style={{ position: 'absolute', inset: 0, background: 'white', opacity: 0.85, pointerEvents: 'none', animation: 'fadeIn 0.15s ease' }} />
@@ -300,7 +424,7 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
       </div>
 
       {/* Yaw angle indicator */}
-      {captureState !== 'loading' && captureState !== 'error' && captureState !== 'done' && captureState !== 'capturing' && (() => {
+      {captureState !== 'loading' && captureState !== 'error' && captureState !== 'done' && captureState !== 'capturing' && captureState !== 'countdown' && (() => {
         const [zLo, zHi] = YAW_ZONES[angle];
         const toPercent = (v: number) => Math.round(((Math.max(-1, Math.min(1, v)) + 1) / 2) * 100);
         const markerPct  = toPercent(estimatedYaw);
@@ -341,7 +465,7 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', padding: '10px 16px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, maxWidth: 440, margin: '0 auto' }}>
           <span className="dot" style={{ background: statusColor, width: 8, height: 8, flexShrink: 0, animation: captureState !== 'done' && captureState !== 'error' ? 'softPulse 1.2s infinite' : 'none' }} />
           <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{statusLabel}</span>
-          {captureState === 'stabilizing' || captureState === 'detecting' ? (
+          {captureState === 'stabilizing' || captureState === 'detecting' || captureState === 'countdown' ? (
             <span className="mono" style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', flexShrink: 0 }}>
               yaw {estimatedYaw.toFixed(2)}
             </span>

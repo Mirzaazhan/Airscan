@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { ANTHROPOMETRIC_LANDMARKS, MEASURE_DEFINITIONS } from '@/lib/mediapipe';
 
 export function ThreeDModel() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -14,12 +16,11 @@ export function ThreeDModel() {
     let animId = 0;
     let cleanupFns: (() => void)[] = [];
 
-    (() => { // synchronous — THREE is a top-level import ('use client' = no SSR)
-
+    (() => {
       const W = container.clientWidth || 400;
       const H = 280;
 
-      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setSize(W, H);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setClearColor(0x0d1f3a, 1);
@@ -29,8 +30,8 @@ export function ThreeDModel() {
       const camera = new THREE.PerspectiveCamera(44, W / H, 0.1, 100);
       camera.position.set(0, 0.1, 3.9);
 
-      scene.add(new THREE.AmbientLight(0x0a1830, 3));
-      const dl = new THREE.DirectionalLight(0x00c9a7, 1.8);
+      scene.add(new THREE.AmbientLight(0xffffff, 2));
+      const dl = new THREE.DirectionalLight(0xffffff, 3.0);
       dl.position.set(2, 2, 3);
       scene.add(dl);
       const dl2 = new THREE.DirectionalLight(0x1e3a6f, 1.2);
@@ -40,30 +41,33 @@ export function ThreeDModel() {
       const group = new THREE.Group();
       scene.add(group);
 
-      // Deformed sphere head
-      const headGeo = new THREE.SphereGeometry(1, 52, 52);
-      const pos = headGeo.attributes.position as THREE.BufferAttribute;
-      for (let i = 0; i < pos.count; i++) {
-        const y = pos.getY(i);
-        const jt = y < -0.15 ? Math.max(0.62, 1 + (y + 0.15) * 0.55) : 1;
-        pos.setX(i, pos.getX(i) * 0.82 * jt);
-        pos.setY(i, y * 1.22);
-        pos.setZ(i, pos.getZ(i) * 0.78);
-      }
-      pos.needsUpdate = true;
-      headGeo.computeVertexNormals();
+      const loader = new GLTFLoader();
+      loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/LeePerrySmith/LeePerrySmith.glb', (gltf) => {
+        const avatar = gltf.scene;
+        // Scale and align the avatar's head with the existing landmark coordinates
+        avatar.scale.set(1.4, 1.4, 1.4);
+        avatar.position.set(0, 0, -0.2);
+        
+        // Traverse and tweak materials to look good with our lighting
+        avatar.traverse((node) => {
+          if ((node as THREE.Mesh).isMesh) {
+            const mesh = node as THREE.Mesh;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            if (mesh.material) {
+              const mat = mesh.material as THREE.MeshStandardMaterial;
+              mat.roughness = 0.6;
+              mat.metalness = 0.1;
+            }
+          }
+        });
 
-      group.add(new THREE.Mesh(headGeo, new THREE.MeshPhongMaterial({ color: 0x0a1e3a, specular: 0x1e3a5f, shininess: 30, transparent: true, opacity: 0.88 })));
-      group.add(new THREE.Mesh(headGeo, new THREE.MeshBasicMaterial({ color: 0x1e4a7a, wireframe: true, transparent: true, opacity: 0.32 })));
-
-      // Neck
-      const nkGeo = new THREE.CylinderGeometry(0.30, 0.36, 0.52, 16);
-      const nkSolid = new THREE.Mesh(nkGeo, new THREE.MeshPhongMaterial({ color: 0x0a1e3a, transparent: true, opacity: 0.88 }));
-      nkSolid.position.set(0, -1.43, -0.06);
-      group.add(nkSolid);
-      const nkWire = new THREE.Mesh(nkGeo, new THREE.MeshBasicMaterial({ color: 0x1e4a7a, wireframe: true, transparent: true, opacity: 0.32 }));
-      nkWire.position.copy(nkSolid.position);
-      group.add(nkWire);
+        group.add(avatar);
+        setLoading(false);
+      }, undefined, (error) => {
+        console.error('Failed to load avatar:', error);
+        setLoading(false);
+      });
 
       // Landmark spheres + label sprites
       const lmMeshes: Record<string, THREE.Mesh> = {};
@@ -145,8 +149,6 @@ export function ThreeDModel() {
         renderer.domElement.removeEventListener('mousedown', onMouseDown);
         if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
         renderer.dispose();
-        headGeo.dispose();
-        nkGeo.dispose();
       });
     })();
 
@@ -157,8 +159,17 @@ export function ThreeDModel() {
     <div>
       <div
         ref={containerRef}
-        style={{ width: '100%', height: 280, borderRadius: 8, overflow: 'hidden', cursor: 'grab', background: 'oklch(0.14 0.03 230)' }}
-      />
+        style={{ width: '100%', height: 280, borderRadius: 8, overflow: 'hidden', cursor: 'grab', background: 'oklch(0.14 0.03 230)', position: 'relative' }}
+      >
+        {loading && (
+          <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'rgba(13, 31, 58, 0.8)', zIndex: 10 }}>
+            <div style={{ color: 'var(--ink-2)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 16, height: 16, border: '2px solid var(--petrol)', borderTopColor: 'var(--sage)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+              Loading avatar…
+            </div>
+          </div>
+        )}
+      </div>
       <p style={{ fontSize: 11, color: 'var(--ink-3)', textAlign: 'center', marginTop: 6, fontFamily: 'var(--font-mono)' }}>
         Drag to rotate · 16 anthropometric landmarks · colored by anatomical group
       </p>

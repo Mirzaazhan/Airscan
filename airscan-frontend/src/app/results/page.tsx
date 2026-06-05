@@ -23,7 +23,7 @@ type Tab = 'summary' | 'measurements' | '3d';
 
 export default function ResultsPage() {
   const router = useRouter();
-  const { result, demographics } = useScan();
+  const { result, demographics, stopBang } = useScan();
   const [activeTab, setActiveTab] = useState<Tab>('summary');
   const [pdfLoading, setPdfLoading] = useState(false);
 
@@ -53,6 +53,7 @@ export default function ResultsPage() {
         confidence: result.confidence,
         message: result.message,
         demographics: demo,
+        stopBang: stopBang || undefined,
         measurements: result.measurements,
       });
     } finally {
@@ -128,9 +129,9 @@ export default function ResultsPage() {
                   {[
                     ['Jaw-to-skull ratio', 0.62, 'normal'],
                     ['Mandibular plane angle', result.risk === 'red' ? 0.78 : result.risk === 'yellow' ? 0.65 : 0.44, result.risk === 'red' ? 'high' : result.risk === 'yellow' ? 'elevated' : 'normal'],
-                    ['Oropharyngeal crowding', result.risk === 'green' ? 0.31 : result.risk === 'red' ? 0.82 : 0.58, result.risk === 'red' ? 'high' : result.risk === 'yellow' ? 'elevated' : 'normal'],
+                    [`Mallampati Class ${result.mallampatiScore || 2}`, (result.mallampatiScore || 2) / 4, (result.mallampatiScore || 2) >= 3 ? 'high' : (result.mallampatiScore || 2) === 2 ? 'elevated' : 'normal'],
                     ['Facial width / height', 0.55, 'normal'],
-                    ['Neck circumference est.', 0.48, 'normal'],
+                    ['Neck circumference est.', result.neckMeasurement ? Math.min(1, result.neckMeasurement.circumferenceMm / 500) : 0.48, result.neckMeasurement ? (result.neckMeasurement.circumferenceMm > 400 ? 'high' : 'normal') : 'normal'],
                   ].map(([name, val, flag]) => {
                     const fc = flag === 'high' ? 'var(--terra)' : flag === 'elevated' ? 'var(--amber)' : 'var(--sage)';
                     return (
@@ -152,7 +153,7 @@ export default function ResultsPage() {
                     ['BMI', Math.min(1, bmi / 40)],
                     ['Age group', Math.min(1, demo.age / 80)],
                     ['Sex factor', 0.50],
-                    ['Snoring indicator', demo.snoring === 'Every night' ? 0.95 : demo.snoring === 'Sometimes' ? 0.6 : demo.snoring === 'Rarely' ? 0.3 : 0.05],
+                    ['Snoring indicator', stopBang?.snoring ? 0.95 : 0.05],
                   ].map(([name, val]) => (
                     <div key={String(name)} style={{ marginBottom: 10 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
@@ -169,6 +170,32 @@ export default function ResultsPage() {
                   </div>
                 </div>
               </div>
+              
+              {/* Nasal Assessment */}
+              {result.nasalAssessment && (
+                <div className="card" style={{ padding: 24, marginTop: 16 }}>
+                  <div className="label" style={{ marginBottom: 12 }}>Nasal assessment</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
+                    {[
+                      ['Aperture Width', `${result.nasalAssessment.apertureWidthMm.toFixed(1)} mm`, result.nasalAssessment.flags.aperture],
+                      ['Valve Angle (L)', `${result.nasalAssessment.valveAngleLeft.toFixed(1)}°`, result.nasalAssessment.valveAngleLeft < 10 ? 'high' : 'normal'],
+                      ['Valve Angle (R)', `${result.nasalAssessment.valveAngleRight.toFixed(1)}°`, result.nasalAssessment.valveAngleRight < 10 ? 'high' : 'normal'],
+                      ['Nostril Asymmetry', result.nasalAssessment.asymmetryRatio.toFixed(2), result.nasalAssessment.flags.asymmetry],
+                    ].map(([name, val, flag]) => {
+                      const fc = flag === 'high' ? 'var(--terra)' : flag === 'elevated' ? 'var(--amber)' : 'var(--sage)';
+                      return (
+                        <div key={String(name)} style={{ padding: 12, background: 'var(--paper-2)', borderRadius: 8 }}>
+                          <div style={{ fontSize: 12, color: 'var(--ink-2)', marginBottom: 4 }}>{String(name)}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span className="mono" style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)' }}>{String(val)}</span>
+                            <span style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', padding: '2px 6px', borderRadius: 4, background: `${fc}-bg`, color: fc }}>{String(flag)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* What this means */}
               <div className="card" style={{ padding: 20, marginTop: 16 }}>

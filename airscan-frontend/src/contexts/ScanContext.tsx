@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import type { CapturedFrame, Demographics, PredictResponse, ScanRecord } from '@/lib/types';
+import type { CapturedFrame, Demographics, PredictResponse, ScanRecord, StopBang, ScanAngle } from '@/lib/types';
 
 const FIREBASE_ENABLED = !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
@@ -14,6 +14,8 @@ interface ScanContextValue {
 
   demographics: Demographics | null;
   setDemographics: (d: Demographics) => void;
+  stopBang: StopBang | null;
+  setStopBang: (s: StopBang) => void;
   captures: CapturedFrame[];
   addCapture: (f: CapturedFrame) => void;
   resetCaptures: () => void;
@@ -43,7 +45,8 @@ function makeMockScans(): ScanRecord[] {
     risk: risks[i],
     confidence: confs[i],
     message: messages[risks[i]],
-    demographics: { age: 42, gender: 'Male', weight: 78, height: 172, race: 'Malay', snoring: 'Sometimes', oxygenCondition: 'Normal', medicalHistory: 'None' },
+    demographics: { age: 42, gender: 'Male', weight: 78, height: 172, race: 'Malay' },
+    stopBang: { snoring: true, tired: false, observed: false, pressure: false, bmi: false, age: false, neck: false, gender: true, score: 2 },
   }));
 }
 
@@ -51,6 +54,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserShape | null>(null);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [demographics, setDemographics] = useState<Demographics | null>(null);
+  const [stopBang, setStopBang] = useState<StopBang | null>(null);
   const [captures, setCaptures] = useState<CapturedFrame[]>([]);
   const [result, setResult] = useState<PredictResponse | null>(null);
   const [scans, setScans] = useState<ScanRecord[]>([]);
@@ -115,13 +119,15 @@ export function ScanProvider({ children }: { children: ReactNode }) {
   const resetCaptures = useCallback(() => setCaptures([]), []);
 
   const addScan = useCallback(async (s: ScanRecord, caps: CapturedFrame[]) => {
+    console.log('[Airscan] addScan called — FIREBASE_ENABLED:', FIREBASE_ENABLED, '| uid:', user?.uid);
     if (!FIREBASE_ENABLED || !user || user.uid === 'mock-uid-001') {
+      console.log('[Airscan] addScan: mock path — FIREBASE_ENABLED:', FIREBASE_ENABLED, '| user:', user?.uid ?? 'null');
       setScans(prev => [s, ...prev]);
       return;
     }
 
     // Upload captured images to Storage, collect download URLs
-    const imageRefs: Partial<Record<'front' | 'left' | 'right', string>> = {};
+    const imageRefs: Partial<Record<ScanAngle, string>> = {};
     try {
       const { ref, uploadString, getDownloadURL } = await import('firebase/storage');
       const { storage } = await import('@/lib/firebase');
@@ -171,6 +177,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     <ScanContext.Provider value={{
       user, authLoaded, setUser,
       demographics, setDemographics,
+      stopBang, setStopBang,
       captures, addCapture, resetCaptures,
       result, setResult,
       scans, addScan, deleteScan,

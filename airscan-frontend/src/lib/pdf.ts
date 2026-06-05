@@ -7,6 +7,7 @@ interface PDFData {
   confidence: number;
   message: string;
   demographics: Demographics;
+  stopBang?: import('./types').StopBang;
   measurements?: CraniofacialMeasurement[];
 }
 
@@ -63,8 +64,8 @@ export async function downloadPDF(data: PDFData): Promise<void> {
   const rows: [string, string, string, string][] = [
     ['Gender:', d.gender, 'Age:', `${d.age} years`],
     ['Height / Weight:', `${d.height} cm / ${d.weight} kg`, 'BMI:', bmi],
-    ['Ethnicity:', d.race, 'Snoring:', d.snoring ?? 'Not specified'],
-    ['Medical Hx:', d.medicalHistory ?? 'None', 'O2 Condition:', d.oxygenCondition ?? 'Normal'],
+    ['Ethnicity:', d.race, 'Snoring:', data.stopBang?.snoring ? 'Yes' : 'No'],
+    ['Medical Hx:', 'None', 'O2 Condition:', 'Normal'],
   ];
   doc.setFontSize(9);
   rows.forEach(r => {

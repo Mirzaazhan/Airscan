@@ -14,13 +14,12 @@ interface Props {
 export function DemographicsScreen({ onSubmit, onBack, initial }: Props) {
   const [form, setForm] = useState<Partial<Demographics>>(initial ?? {
     age: undefined, gender: '', weight: undefined, height: undefined, race: '',
-    snoring: '', oxygenCondition: 'Normal', medicalHistory: 'None',
   });
   const update = (k: keyof Demographics, v: string | number) => setForm(f => ({ ...f, [k]: v }));
 
   const age = Number(form.age), weight = Number(form.weight), height = Number(form.height);
   const valid = age >= 5 && age <= 80 && weight >= 10 && weight <= 200 && height >= 50 && height <= 250
-    && !!form.gender && !!form.race && !!form.snoring;
+    && !!form.gender && !!form.race;
   const bmi = weight && height ? (weight / Math.pow(height / 100, 2)).toFixed(1) : null;
 
   const SelectPills = ({ value, onChange, options }: { value: string; onChange: (v: string) => void; options: string[] }) => (
@@ -104,34 +103,13 @@ export function DemographicsScreen({ onSubmit, onBack, initial }: Props) {
               options={['Malay', 'Chinese', 'Indian', 'Other']} />
           </div>
 
-          {/* Snoring frequency — required, primary OSA predictor */}
-          <div>
-            <label className="label" style={{ display: 'block', marginBottom: 4 }}>Snoring frequency <span style={{ color: 'var(--terra)', fontWeight: 400 }}>*</span></label>
-            <p style={{ fontSize: 12, color: 'var(--ink-3)', margin: '0 0 8px' }}>Snoring is the single strongest questionnaire predictor of OSA.</p>
-            <SelectPills value={form.snoring ?? ''} onChange={v => update('snoring', v)}
-              options={['Never', 'Rarely', 'Sometimes', 'Every night']} />
-          </div>
-
-          {/* Oxygen / breathlessness */}
-          <div>
-            <label className="label" style={{ display: 'block', marginBottom: 8 }}>Daytime breathlessness</label>
-            <SelectPills value={form.oxygenCondition ?? 'Normal'} onChange={v => update('oxygenCondition', v)}
-              options={['Normal', 'Mild', 'Moderate (Low SpO2)', 'Unsure']} />
-          </div>
-
-          {/* Medical history */}
-          <div>
-            <label className="label" style={{ display: 'block', marginBottom: 8 }}>Relevant medical history</label>
-            <SelectPills value={form.medicalHistory ?? 'None'} onChange={v => update('medicalHistory', v)}
-              options={['None', 'Hypertension', 'Diabetes', 'Heart disease', 'Obesity', 'Other']} />
-          </div>
         </div>
 
         <div style={{ display: 'flex', gap: 12, marginTop: 32 }}>
           <button className="btn btn-secondary btn-lg" onClick={onBack}>Back</button>
           <button className="btn btn-primary btn-lg" disabled={!valid} style={{ flex: 1 }}
             onClick={() => valid && onSubmit(form as Demographics)}>
-            Continue to scan <IconArrow size={16} />
+            Continue <IconArrow size={16} />
           </button>
         </div>
         <div style={{ marginTop: 20 }}><Disclaimer /></div>
