@@ -108,13 +108,19 @@ export function QuestionnaireScreen({ demographics, onSubmit, onBack, initial }:
   );
 
   return (
-    <div style={{ minHeight: '100vh', overflow: 'auto', padding: '40px 64px', background: 'var(--paper)' }}>
+    <div style={{ minHeight: '100vh', overflow: 'auto', padding: 'clamp(24px, 5vh, 40px) clamp(16px, 5vw, 64px)', background: 'linear-gradient(160deg, var(--paper) 0%, oklch(0.97 0.015 130 / 0.35) 100%)' }}>
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
-        <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: 20, paddingLeft: 0 }}>
+        <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: 24, paddingLeft: 0, gap: 6 }}>
           <IconArrowLeft size={16} /> Back
         </button>
-        <div className="eyebrow" style={{ color: 'var(--petrol)' }}>Step 3 of 4 · STOP-BANG Questionnaire</div>
-        <h2 className="serif" style={{ fontSize: 44, margin: '12px 0 8px', lineHeight: 1.08, letterSpacing: '-0.01em' }}>
+        {/* Step indicator */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 28 }}>
+          {[1,2,3,4].map(n => (
+            <div key={n} style={{ height: 4, flex: 1, borderRadius: 2, background: n <= 3 ? 'var(--petrol)' : 'var(--line)' }}/>
+          ))}
+        </div>
+        <div className="eyebrow" style={{ color: 'var(--petrol)', marginBottom: 14 }}>Step 3 of 4 · STOP-BANG Questionnaire</div>
+        <h2 className="serif" style={{ fontSize: 'clamp(26px, 5vw, 44px)', margin: '0 0 12px', lineHeight: 1.08, letterSpacing: '-0.01em' }}>
           Additional Risk Factors
         </h2>
         <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.55, marginBottom: 32, maxWidth: 520 }}>

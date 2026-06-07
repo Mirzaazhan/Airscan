@@ -75,22 +75,20 @@ export default function ResultsPage() {
 
           {/* Header row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <div className="eyebrow" style={{ color: 'var(--ink-3)' }}>
-              Report · {date}
-            </div>
+            <div className="eyebrow">Report · {date}</div>
             <span className="mono" style={{ fontSize: 11, color: 'var(--ink-3)' }}>ID {result.scan_id.slice(0, 8)}</span>
           </div>
 
           {/* Top strip: risk badge + action buttons */}
           <div className="results-top">
-            <div className="card" style={{ padding: '20px 24px', display: 'flex', alignItems: 'center', gap: 20 }}>
-              <div style={{ width: 56, height: 56, borderRadius: '50%', background: c.ring, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                <span style={{ color: 'white', fontFamily: 'var(--font-serif)', fontSize: 20, textTransform: 'capitalize' }}>{result.risk[0]}</span>
+            <div className="card" style={{ padding: '22px 28px', display: 'flex', alignItems: 'center', gap: 22 }}>
+              <div style={{ width: 60, height: 60, borderRadius: '50%', background: c.ring, display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                <span style={{ color: 'white', fontFamily: 'var(--font-serif)', fontSize: 22, textTransform: 'capitalize' }}>{result.risk[0]}</span>
               </div>
               <div>
-                <div className="eyebrow" style={{ color: c.ink }}>{c.label}</div>
-                <div className="serif" style={{ fontSize: 26, lineHeight: 1.1 }}>{Math.round(result.confidence * 100)}% confidence</div>
-                <p style={{ fontSize: 13, color: 'var(--ink-2)', margin: '6px 0 0', lineHeight: 1.5 }}>{result.message}</p>
+                <div className="eyebrow" style={{ color: c.ink, marginBottom: 4 }}>{c.label}</div>
+                <div className="serif" style={{ fontSize: 26, lineHeight: 1.1, color: 'var(--ink)' }}>{Math.round(result.confidence * 100)}% confidence</div>
+                <p style={{ fontSize: 13, color: 'var(--ink-2)', margin: '8px 0 0', lineHeight: 1.55 }}>{result.message}</p>
               </div>
             </div>
             <div className="results-actions">
@@ -110,10 +108,11 @@ export default function ResultsPage() {
           <div className="results-tabs">
             {tabs.map(t => (
               <button key={t.key} onClick={() => setActiveTab(t.key)} style={{
-                padding: '10px 18px', fontSize: 13, fontWeight: 500, background: 'none', border: 'none',
-                borderBottom: activeTab === t.key ? '2px solid var(--petrol-ink)' : '2px solid transparent',
+                padding: '11px 20px', fontSize: 13, fontWeight: 500, background: 'none', border: 'none',
+                borderBottom: activeTab === t.key ? '2px solid var(--petrol)' : '2px solid transparent',
                 color: activeTab === t.key ? 'var(--ink)' : 'var(--ink-3)',
                 cursor: 'pointer', fontFamily: 'inherit', marginBottom: -1,
+                transition: 'color 0.15s',
               }}>
                 {t.label}
               </button>

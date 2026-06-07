@@ -19,40 +19,64 @@ export function ScanInstructionsScreen({ onStart, onBack }: Props) {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', overflow: 'auto', padding: 'clamp(20px, 5vw, 40px) clamp(16px, 5vw, 64px)', background: 'var(--paper)' }}>
-      <div style={{ maxWidth: 900, margin: '0 auto' }}>
-        <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: 20, paddingLeft: 0 }}>
+    <div style={{
+      minHeight: '100vh', overflow: 'auto',
+      padding: 'clamp(24px, 5vw, 48px) clamp(16px, 5vw, 64px)',
+      background: 'linear-gradient(160deg, var(--paper) 0%, oklch(0.97 0.015 130 / 0.35) 100%)',
+    }}>
+      <div style={{ maxWidth: 960, margin: '0 auto' }}>
+        <button className="btn btn-ghost" onClick={onBack} style={{ marginBottom: 24, paddingLeft: 0, gap: 6 }}>
           <IconArrowLeft size={16} /> Back
         </button>
-        <div className="eyebrow" style={{ color: 'var(--petrol)' }}>Step 4 of 4 · Scan preparation</div>
-        <h2 className="serif" style={{ fontSize: 'clamp(28px, 6vw, 44px)', margin: '12px 0 8px', lineHeight: 1.08, letterSpacing: '-0.01em' }}>
+
+        {/* Step indicator */}
+        <div style={{ display: 'flex', gap: 6, marginBottom: 28 }}>
+          {[1,2,3,4].map(n => (
+            <div key={n} style={{
+              height: 4, flex: 1, borderRadius: 2,
+              background: n <= 4 ? 'var(--petrol)' : 'var(--line)',
+            }}/>
+          ))}
+        </div>
+
+        <div className="eyebrow" style={{ color: 'var(--petrol)', marginBottom: 14 }}>Step 4 of 4 · Scan preparation</div>
+        <h2 className="serif" style={{ fontSize: 'clamp(26px, 5vw, 42px)', margin: '0 0 10px', lineHeight: 1.08, letterSpacing: '-0.01em', color: 'var(--ink)' }}>
           Eight angles, about 2 minutes.
         </h2>
-        <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.55, marginBottom: 28, maxWidth: 540 }}>
+        <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.6, marginBottom: 32, maxWidth: 560 }}>
           Hold still for each angle — the scan captures automatically once your face is stable
           for ten consecutive frames.
         </p>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 28 }}>
+        <div className="grid-scan-angles" style={{ marginBottom: 28 }}>
           {angles.map((a, i) => (
-            <div key={a.angle} className="card" style={{ padding: 12 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <span className="label">Angle {i + 1}</span>
+            <div key={a.angle} className="card" style={{ padding: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--petrol)', background: 'var(--sage-bg)', padding: '2px 8px', borderRadius: 'var(--r-full)' }}>
+                  {i + 1}
+                </span>
                 <span className="mono" style={{ fontSize: 10, color: 'var(--ink-3)' }}>{a.time}</span>
               </div>
-              <div style={{ position: 'relative', aspectRatio: '3 / 4', background: 'var(--paper-2)', borderRadius: 'var(--r-sm)', overflow: 'hidden', marginBottom: 10 }}>
+              <div style={{ position: 'relative', aspectRatio: '3 / 4', background: 'var(--paper-2)', borderRadius: 'var(--r-md)', overflow: 'hidden', marginBottom: 10 }}>
                 <FaceSilhouette angle={a.angle} size={200} />
                 <FaceMeshOverlay angle={a.angle} size={200} stability={0.8} active={false} />
               </div>
-              <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 3 }}>{a.title}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', marginBottom: 3 }}>{a.title}</div>
               <div style={{ fontSize: 11, color: 'var(--ink-3)', lineHeight: 1.5 }}>{a.desc}</div>
             </div>
           ))}
         </div>
 
-        <div style={{ padding: 16, background: 'var(--amber-bg)', border: '1px solid oklch(0.85 0.06 85)', borderRadius: 'var(--r-md)', display: 'flex', gap: 12, marginBottom: 20 }}>
+        {/* Camera notice */}
+        <div style={{
+          padding: '16px 20px',
+          background: 'oklch(0.97 0.04 85 / 0.6)',
+          border: '1px solid oklch(0.85 0.06 85)',
+          borderRadius: 'var(--r-lg)',
+          display: 'flex', gap: 14, marginBottom: 24, alignItems: 'flex-start',
+        }}>
           <IconInfo size={18} style={{ color: 'var(--amber-ink)', flexShrink: 0, marginTop: 1 }} />
-          <div style={{ fontSize: 13, color: 'var(--amber-ink)', lineHeight: 1.55 }}>
+          <div style={{ fontSize: 13, color: 'var(--amber-ink)', lineHeight: 1.6 }}>
             <strong>Camera access required.</strong> Airscan processes frames on-device.
             Only the final landmark coordinates and one still per angle leave your browser.
           </div>

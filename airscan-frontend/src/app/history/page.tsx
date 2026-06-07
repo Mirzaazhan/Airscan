@@ -19,17 +19,31 @@ const FLAG_COLOR: Record<CraniofacialMeasurement['flag'], string> = {
 function HistoryRow({ scan, onClick }: { scan: ScanRecord; onClick: () => void }) {
   return (
     <button onClick={onClick}
-      style={{ display: 'grid', gridTemplateColumns: '80px 1.2fr 1fr 1fr 1fr 60px', alignItems: 'center', padding: '14px 16px', background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%', transition: 'background 0.1s' }}
+      style={{ display: 'block', padding: 0, background: 'transparent', border: 'none', borderBottom: '1px solid var(--line-2)', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left', width: '100%', transition: 'background 0.1s' }}
       onMouseEnter={e => (e.currentTarget.style.background = 'var(--paper-2)')}
       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-      <span className="chip" style={{ background: RISK_BG[scan.risk], color: 'var(--ink)', justifySelf: 'start' }}>
-        <span className="dot" style={{ background: RISK_COLORS[scan.risk] }}/> <span style={{ textTransform: 'capitalize' }}>{scan.risk}</span>
-      </span>
-      <span style={{ fontSize: 13 }}>{scan.date}</span>
-      <span style={{ fontSize: 13, color: 'var(--ink-2)' }} className="mono">{Math.round(scan.confidence * 100)}%</span>
-      <span style={{ fontSize: 12, color: 'var(--ink-3)' }} className="mono">3 · 468pt</span>
-      <span style={{ fontSize: 12, color: 'var(--ink-3)' }} className="mono">{scan.id.slice(0, 8)}</span>
-      <IconChevron size={16} style={{ color: 'var(--ink-4)' }}/>
+      {/* Desktop layout */}
+      <div className="history-row-desktop" style={{ alignItems: 'center', padding: '14px 16px' }}>
+        <span className="chip" style={{ background: RISK_BG[scan.risk], color: 'var(--ink)', justifySelf: 'start' }}>
+          <span className="dot" style={{ background: RISK_COLORS[scan.risk] }}/> <span style={{ textTransform: 'capitalize' }}>{scan.risk}</span>
+        </span>
+        <span style={{ fontSize: 13 }}>{scan.date}</span>
+        <span style={{ fontSize: 13, color: 'var(--ink-2)' }} className="mono">{Math.round(scan.confidence * 100)}%</span>
+        <span style={{ fontSize: 12, color: 'var(--ink-3)' }} className="mono">3 · 468pt</span>
+        <span style={{ fontSize: 12, color: 'var(--ink-3)' }} className="mono">{scan.id.slice(0, 8)}</span>
+        <IconChevron size={16} style={{ color: 'var(--ink-4)' }}/>
+      </div>
+      {/* Mobile layout */}
+      <div className="history-row-mobile" style={{ alignItems: 'center', gap: 12, padding: '12px 16px' }}>
+        <span className="chip" style={{ background: RISK_BG[scan.risk], color: 'var(--ink)', flexShrink: 0 }}>
+          <span className="dot" style={{ background: RISK_COLORS[scan.risk] }}/> <span style={{ textTransform: 'capitalize' }}>{scan.risk}</span>
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 500 }}>{scan.date}</div>
+          <div style={{ fontSize: 11, color: 'var(--ink-3)' }} className="mono">{Math.round(scan.confidence * 100)}% · {scan.id.slice(0, 8)}</div>
+        </div>
+        <IconChevron size={16} style={{ color: 'var(--ink-4)', flexShrink: 0 }}/>
+      </div>
     </button>
   );
 }
@@ -210,8 +224,8 @@ export default function HistoryPage() {
             <HistoryDetail scan={selectedScan} onBack={() => setSelectedScan(null)} onDelete={handleDelete} />
           ) : (
             <>
-              <div className="eyebrow" style={{ color: 'var(--ink-3)' }}>All scans</div>
-              <h1 className="serif" style={{ fontSize: 44, margin: '8px 0 24px', letterSpacing: '-0.01em' }}>Scan history</h1>
+              <div className="eyebrow" style={{ marginBottom: 8 }}>All scans</div>
+              <h1 className="serif" style={{ fontSize: 'clamp(32px, 4vw, 44px)', margin: '0 0 24px', letterSpacing: '-0.01em', color: 'var(--ink)' }}>Scan history</h1>
 
               <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
                 {[
@@ -221,15 +235,15 @@ export default function HistoryPage() {
                   { k: 'red', label: 'High concern', dot: 'var(--terra)' },
                 ].map(t => (
                   <button key={t.k} onClick={() => setFilter(t.k as typeof filter)}
-                    style={{ padding: '7px 12px', fontSize: 13, fontWeight: 500, background: filter === t.k ? 'var(--ink)' : 'var(--surface)', color: filter === t.k ? 'white' : 'var(--ink-2)', border: '1px solid ' + (filter === t.k ? 'var(--ink)' : 'var(--line)'), borderRadius: 'var(--r-sm)', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    style={{ padding: '8px 16px', fontSize: 13, fontWeight: 500, background: filter === t.k ? 'var(--petrol)' : 'var(--surface)', color: filter === t.k ? 'white' : 'var(--ink-2)', border: '1px solid ' + (filter === t.k ? 'var(--petrol)' : 'var(--line)'), borderRadius: 'var(--r-full)', cursor: 'pointer', fontFamily: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 8, transition: 'all 0.15s' }}>
                     {t.dot && <span className="dot" style={{ background: t.dot }}/>}
-                    {t.label} <span style={{ opacity: 0.5, fontSize: 11 }}>({counts[t.k as keyof typeof counts]})</span>
+                    {t.label} <span style={{ opacity: 0.6, fontSize: 11 }}>({counts[t.k as keyof typeof counts]})</span>
                   </button>
                 ))}
               </div>
 
               <div className="card" style={{ overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '80px 1.2fr 1fr 1fr 1fr 60px', padding: '12px 16px', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)', background: 'var(--paper-2)', fontWeight: 500 }}>
+                <div className="history-head-desktop" style={{ padding: '12px 16px', fontSize: 11, fontFamily: 'var(--font-mono)', textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--ink-3)', borderBottom: '1px solid var(--line)', background: 'var(--paper-2)', fontWeight: 500 }}>
                   <div>Risk</div><div>Date</div><div>Confidence</div><div>Angles</div><div>Scan ID</div><div/>
                 </div>
                 {filtered.map(s => <HistoryRow key={s.id} scan={s} onClick={() => setSelectedScan(s)} />)}

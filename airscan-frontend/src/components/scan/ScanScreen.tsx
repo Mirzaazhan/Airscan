@@ -267,7 +267,8 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
     : captureState === 'stabilizing' ? `Hold still · ${stableFrames}/${required}`
     : 'Align your face in the frame';
 
-  const feedW = 420;
+  // Clamp camera feed to viewport width on small screens
+  const feedW = typeof window !== 'undefined' ? Math.min(420, window.innerWidth - 32) : 420;
   const feedH = feedW * 1.2;
 
   // Map live landmarks to overlay positions for the 140-pt simulated mesh display
@@ -278,7 +279,7 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
   return (
     <div style={{ minHeight: '100vh', overflow: 'hidden', background: 'var(--petrol-ink)', color: 'white', display: 'flex', flexDirection: 'column', position: 'relative' }}>
       {/* Top bar */}
-      <div style={{ padding: '24px 40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 10 }}>
+      <div style={{ padding: 'clamp(16px, 3vw, 24px) clamp(16px, 5vw, 40px)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 10 }}>
         <button onClick={() => { stopCamera(); onBack(); }} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: 'white', padding: '8px 10px', borderRadius: 6, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
           <IconX size={16} /> Cancel
         </button>
@@ -295,7 +296,7 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
       </div>
 
       {/* Instruction */}
-      <div style={{ padding: '0 40px', textAlign: 'center' }}>
+      <div style={{ padding: '0 clamp(16px, 5vw, 40px)', textAlign: 'center' }}>
         <div className="eyebrow" style={{ color: 'rgba(255,255,255,0.5)' }}>{angle.toUpperCase().replace('_', ' ')} · Angle {angleIdx + 1} of 8</div>
         <h2 className="serif" style={{ fontSize: 40, margin: '8px 0 6px', letterSpacing: '-0.01em' }}>{ANGLE_LABELS[angle]}</h2>
         <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', margin: 0 }}>{ANGLE_SUBS[angle]}</p>
@@ -461,7 +462,7 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
       })()}
 
       {/* Status strip */}
-      <div style={{ padding: '0 40px 32px' }}>
+      <div style={{ padding: '0 clamp(16px, 5vw, 40px) clamp(20px, 4vh, 32px)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center', padding: '10px 16px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 10, maxWidth: 440, margin: '0 auto' }}>
           <span className="dot" style={{ background: statusColor, width: 8, height: 8, flexShrink: 0, animation: captureState !== 'done' && captureState !== 'error' ? 'softPulse 1.2s infinite' : 'none' }} />
           <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{statusLabel}</span>

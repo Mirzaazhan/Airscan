@@ -14,7 +14,7 @@ const ANGLE_LABELS: Record<ScanAngle, string> = { front: 'Face forward', left: '
 
 export function AngleSuccessScreen({ capturedAngles, nextAngle, onNext }: Props) {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--paper)', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '40px 64px' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(160deg, var(--paper) 0%, oklch(0.97 0.015 130 / 0.35) 100%)', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 'clamp(24px, 5vh, 40px) clamp(16px, 5vw, 64px)' }}>
       <div style={{ maxWidth: 520, margin: '0 auto', width: '100%', textAlign: 'center' }}>
         <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--sage-bg)', border: '2px solid var(--sage)', display: 'grid', placeItems: 'center', margin: '0 auto 20px', color: 'var(--sage-ink)' }}>
           <IconCheck size={36} strokeWidth={2.5} />

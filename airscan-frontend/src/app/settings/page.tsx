@@ -33,13 +33,13 @@ export default function SettingsPage() {
       <TopBar />
       <div style={{ padding: '32px 40px 60px', overflow: 'auto' }}>
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
-          <div className="eyebrow" style={{ color: 'var(--ink-3)' }}>Account</div>
-          <h1 className="serif" style={{ fontSize: 44, margin: '8px 0 24px', letterSpacing: '-0.01em' }}>Settings</h1>
+          <div className="eyebrow" style={{ marginBottom: 8 }}>Account</div>
+          <h1 className="serif" style={{ fontSize: 'clamp(32px, 4vw, 44px)', margin: '0 0 24px', letterSpacing: '-0.01em', color: 'var(--ink)' }}>Settings</h1>
 
           {/* Profile */}
           <div className="card" style={{ padding: 24, marginBottom: 16 }}>
             <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
-              <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--petrol-ink)', color: 'white', display: 'grid', placeItems: 'center', fontSize: 20, fontWeight: 500, fontFamily: 'var(--font-serif)' }}>
+              <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--petrol)', color: 'white', display: 'grid', placeItems: 'center', fontSize: 20, fontWeight: 600, fontFamily: 'var(--font-sans)' }}>
                 {initials}
               </div>
               <div style={{ flex: 1 }}>
