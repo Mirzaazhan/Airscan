@@ -1,5 +1,5 @@
 import type { PredictRequest, PredictResponse, RiskLevel, CraniofacialMeasurement } from './types';
-import { MEASURE_DEFINITIONS, estimatePixelScale } from './mediapipe';
+import { MEASURE_DEFINITIONS, ANTHROPOMETRIC_LANDMARKS, estimatePixelScale } from './mediapipe';
 import type { LandmarkPoint } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -16,9 +16,37 @@ function mockMeasurements(risk: RiskLevel): CraniofacialMeasurement[] {
   });
 }
 
+function computeCraniofacialMeasurements(frontLandmarks: LandmarkPoint[]): CraniofacialMeasurement[] | null {
+  if (!frontLandmarks || frontLandmarks.length === 0) return null;
+  const scale = estimatePixelScale(frontLandmarks, 640, 480);
+  if (!scale) return null;
+
+  const idToIdx = new Map<string, number>(ANTHROPOMETRIC_LANDMARKS.map(l => [l.id, l.mediapipeIndex]));
+  const getPt = (id: string) => {
+    const idx = idToIdx.get(id);
+    return idx !== undefined ? frontLandmarks.find(l => l.index === idx) : undefined;
+  };
+
+  return MEASURE_DEFINITIONS.map(m => {
+    const from = getPt(m.from);
+    const to = getPt(m.to);
+    if (!from || !to) return { name: m.name, valueMm: m.refMm, refMm: m.refMm, norm: m.norm, significance: m.significance, flag: 'normal' as const };
+    const dx = (to.x - from.x) * 640;
+    const dy = (to.y - from.y) * 480;
+    const valueMm = Math.round(Math.sqrt(dx * dx + dy * dy) * scale);
+    const diff = Math.abs(valueMm - m.refMm) / m.refMm;
+    const flag: CraniofacialMeasurement['flag'] = diff > 0.14 ? 'high' : diff > 0.07 ? 'elevated' : 'normal';
+    return { name: m.name, valueMm, refMm: m.refMm, norm: m.norm, significance: m.significance, flag };
+  });
+}
+
 // Exported so scan/page can fall back to it if the API is unreachable
-export function predictFallback(demographics: PredictRequest['demographics'], stopBang: PredictRequest['stopBang']): PredictResponse {
-  return mockPredict({ demographics, stopBang, landmarks: { front: [], left: [], right: [] } });
+export function predictFallback(
+  demographics: PredictRequest['demographics'],
+  stopBang: PredictRequest['stopBang'],
+  frontLandmarks: LandmarkPoint[] = []
+): PredictResponse {
+  return mockPredict({ demographics, stopBang, landmarks: { front: frontLandmarks, left: [], right: [] } });
 }
 
 function estimateMallampati(mouthLandmarks?: PredictRequest['landmarks']['mouth_open']): number {
@@ -41,7 +69,6 @@ function estimateMallampati(mouthLandmarks?: PredictRequest['landmarks']['mouth_
   if (ratio > 0.15) return 1;
   if (ratio > 0.11) return 2;
   if (ratio > 0.08) return 3;
-  return 4;
   return 4;
 }
 
@@ -139,7 +166,7 @@ function assessNasalRisk(
 }
 
 function mockPredict(req: PredictRequest): PredictResponse {
-  const { weight, height, age } = req.demographics;
+  const { age } = req.demographics;
   const score = req.stopBang?.score ?? 0;
   
   const mallampatiScore = estimateMallampati(req.landmarks.mouth_open);
@@ -166,7 +193,7 @@ function mockPredict(req: PredictRequest): PredictResponse {
     risk, confidence,
     message: messages[risk],
     scan_id: Math.random().toString(36).slice(2, 12),
-    measurements: mockMeasurements(risk),
+    measurements: computeCraniofacialMeasurements(req.landmarks.front) ?? mockMeasurements(risk),
     mallampatiScore,
     nasalAssessment,
   };

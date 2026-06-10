@@ -43,6 +43,30 @@ export default function ResultsPage() {
   const bmi = demo.weight / Math.pow(demo.height / 100, 2);
   const date = new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
 
+  // Derive real bar values from computed measurements
+  const mByName = new Map(result.measurements?.map(m => [m.name, m.valueMm]) ?? []);
+  const bizygomatic = mByName.get('Bizygomatic Width');
+  const bigonial    = mByName.get('Bigonial Width');
+  const totalHeight = mByName.get('Total Facial Height');
+  const lowerHeight = mByName.get('Lower Face Height');
+
+  // Bigonial / Bizygomatic — normal ~0.73; narrower jaw (<0.65) is risky
+  const jawToSkull = bizygomatic && bigonial ? Math.min(0.99, bigonial / bizygomatic) : 0.62;
+  const jawFlag: 'normal' | 'elevated' | 'high' = jawToSkull < 0.65 ? 'high' : jawToSkull < 0.70 ? 'elevated' : 'normal';
+
+  // Lower face / total face — normal ~0.55–0.60; vertical pattern (>0.63) increases risk
+  const lowerFaceRatio = lowerHeight && totalHeight
+    ? Math.min(0.99, lowerHeight / totalHeight)
+    : (result.risk === 'red' ? 0.78 : result.risk === 'yellow' ? 0.65 : 0.44);
+  const lowerFaceFlag: 'normal' | 'elevated' | 'high' = lowerFaceRatio > 0.65 ? 'high' : lowerFaceRatio > 0.60 ? 'elevated' : 'normal';
+
+  // Bizygomatic / (2 × totalHeight) — normalises ~1.1–1.3 ratio to 0–1 range
+  const facialRatio = bizygomatic && totalHeight ? Math.min(0.99, bizygomatic / (totalHeight * 2)) : 0.55;
+
+  // Sex factor from real demographics
+  const g = demo.gender.toLowerCase();
+  const sexFactor = g === 'male' ? 0.72 : g === 'female' ? 0.38 : 0.50;
+
   const handleDownloadPDF = async () => {
     setPdfLoading(true);
     try {
@@ -126,10 +150,10 @@ export default function ResultsPage() {
                 <div className="card" style={{ padding: 24 }}>
                   <div className="label" style={{ marginBottom: 12 }}>Craniofacial features</div>
                   {[
-                    ['Jaw-to-skull ratio', 0.62, 'normal'],
-                    ['Mandibular plane angle', result.risk === 'red' ? 0.78 : result.risk === 'yellow' ? 0.65 : 0.44, result.risk === 'red' ? 'high' : result.risk === 'yellow' ? 'elevated' : 'normal'],
+                    ['Jaw-to-skull ratio',    jawToSkull,    jawFlag],
+                    ['Lower face ratio',      lowerFaceRatio, lowerFaceFlag],
                     [`Mallampati Class ${result.mallampatiScore || 2}`, (result.mallampatiScore || 2) / 4, (result.mallampatiScore || 2) >= 3 ? 'high' : (result.mallampatiScore || 2) === 2 ? 'elevated' : 'normal'],
-                    ['Facial width / height', 0.55, 'normal'],
+                    ['Facial width / height', facialRatio,   'normal'],
                     ['Neck circumference est.', result.neckMeasurement ? Math.min(1, result.neckMeasurement.circumferenceMm / 500) : 0.48, result.neckMeasurement ? (result.neckMeasurement.circumferenceMm > 400 ? 'high' : 'normal') : 'normal'],
                   ].map(([name, val, flag]) => {
                     const fc = flag === 'high' ? 'var(--terra)' : flag === 'elevated' ? 'var(--amber)' : 'var(--sage)';
@@ -151,7 +175,7 @@ export default function ResultsPage() {
                   {[
                     ['BMI', Math.min(1, bmi / 40)],
                     ['Age group', Math.min(1, demo.age / 80)],
-                    ['Sex factor', 0.50],
+                    ['Sex factor', sexFactor],
                     ['Snoring indicator', stopBang?.snoring ? 0.95 : 0.05],
                   ].map(([name, val]) => (
                     <div key={String(name)} style={{ marginBottom: 10 }}>

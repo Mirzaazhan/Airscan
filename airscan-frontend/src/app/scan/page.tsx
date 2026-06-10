@@ -101,7 +101,7 @@ export default function ScanPage() {
         },
       });
     } catch {
-      res = predictFallback(demo, sb);
+      res = predictFallback(demo, sb, allCaptures.find(f => f.angle === 'front')?.landmarks ?? []);
     }
 
     const neckMeasurement = captures.find(c => c.angle === 'neck')?.neckMeasurement;
