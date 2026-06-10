@@ -50,7 +50,12 @@ export default function LandingPage() {
         await signInWithPopup(auth, googleProvider);
         router.push('/dashboard');
       } catch {
-        await signInWithRedirect(auth, googleProvider);
+        // COOP can block popup result propagation even when auth succeeds
+        if (auth.currentUser) {
+          router.push('/dashboard');
+        } else {
+          await signInWithRedirect(auth, googleProvider);
+        }
       }
     } catch { /* ignore */ } finally {
       setSigningIn(false);
