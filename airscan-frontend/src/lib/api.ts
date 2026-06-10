@@ -44,9 +44,115 @@ function computeCraniofacialMeasurements(frontLandmarks: LandmarkPoint[]): Crani
 export function predictFallback(
   demographics: PredictRequest['demographics'],
   stopBang: PredictRequest['stopBang'],
-  frontLandmarks: LandmarkPoint[] = []
+  landmarks: PredictRequest['landmarks'] = { front: [], left: [], right: [] }
 ): PredictResponse {
-  return mockPredict({ demographics, stopBang, landmarks: { front: frontLandmarks, left: [], right: [] } });
+  return mockPredict({ demographics, stopBang, landmarks });
+}
+
+// ── Profile analysis: chin projection + facial convexity from a side-profile capture ──
+function computeProfileMeasurements(
+  profileLandmarks: LandmarkPoint[],
+  frontScale: number
+): CraniofacialMeasurement[] {
+  if (!profileLandmarks.length || !frontScale) return [];
+  const get = (idx: number) => profileLandmarks.find(l => l.index === idx);
+  const glabella  = get(9);
+  const subnasale = get(4);
+  const pogonion  = get(199);
+  const menton    = get(152);
+  const nasion    = get(168);
+  if (!subnasale || !pogonion || !nasion || !menton) return [];
+
+  // Detect profile direction: nose (1) closer to left edge (234) = left profile
+  const nose = get(1); const zyL = get(234); const zyR = get(454);
+  const isLeft = nose && zyL && zyR ? (nose.x - zyL.x) < (zyR.x - nose.x) : true;
+
+  const results: CraniofacialMeasurement[] = [];
+  const faceHeightPx = Math.abs(menton.y - nasion.y) * 480;
+
+  if (faceHeightPx > 20) {
+    // Left profile: face points left, lower x = more anterior
+    // Right profile: face points right, higher x = more anterior
+    const chinOffsetPx = isLeft
+      ? (subnasale.x - pogonion.x) * 640
+      : (pogonion.x - subnasale.x) * 640;
+    const chinMm = Math.round(chinOffsetPx * frontScale);
+    results.push({
+      name: 'Chin Projection',
+      valueMm: chinMm,
+      refMm: 5,
+      norm: '3–8 mm',
+      significance: 'Chin recession (retrognathia) is the #1 structural OSA predictor; narrows the posterior pharyngeal airway',
+      flag: chinMm < 0 ? 'high' : chinMm < 3 ? 'elevated' : 'normal',
+    });
+  }
+
+  if (glabella) {
+    // Scale to pixels for accurate angle (corrects 4:3 aspect ratio distortion)
+    const px = (l: LandmarkPoint) => ({ ...l, x: l.x * 640, y: l.y * 480 });
+    const angle = Math.round(calculateAngle(px(subnasale), px(glabella), px(pogonion)));
+    results.push({
+      name: 'Facial Convexity',
+      valueMm: angle,
+      refMm: 168,
+      norm: '163–175°',
+      significance: 'Convex facial profile (chin behind nose line) indicates mandibular retrognathia and posterior airway narrowing',
+      flag: angle < 155 ? 'high' : angle < 163 ? 'elevated' : 'normal',
+      unit: '°',
+    });
+  }
+
+  return results;
+}
+
+// ── Maxillary constriction index: nasal width / bizygomatic width ──
+function computeMaxillaryConstriction(
+  frontLandmarks: LandmarkPoint[],
+  frontScale: number
+): CraniofacialMeasurement | null {
+  const alarL = frontLandmarks.find(l => l.index === 358);
+  const alarR = frontLandmarks.find(l => l.index === 129);
+  const zyL   = frontLandmarks.find(l => l.index === 234);
+  const zyR   = frontLandmarks.find(l => l.index === 454);
+  if (!alarL || !alarR || !zyL || !zyR) return null;
+
+  const dist = (a: LandmarkPoint, b: LandmarkPoint) =>
+    Math.sqrt(Math.pow((b.x - a.x) * 640, 2) + Math.pow((b.y - a.y) * 480, 2));
+
+  const nasalPx = dist(alarL, alarR);
+  const bizygoPx = dist(zyL, zyR);
+  if (bizygoPx < 10) return null;
+
+  const index = Math.round((nasalPx / bizygoPx) * 100);
+  return {
+    name: 'Maxillary Width Index',
+    valueMm: index,
+    refMm: 18,
+    norm: '16–20',
+    significance: 'Low maxillary width index indicates maxillary constriction; linked to nasal obstruction and increased OSA risk',
+    flag: index < 14 ? 'high' : index < 16 ? 'elevated' : 'normal',
+    unit: '%',
+  };
+}
+
+// ── Resting lip gap from tongue_rest capture (mouth breathing indicator) ──
+function computeRestingLipGap(
+  tongueRestLandmarks: LandmarkPoint[],
+  frontScale: number
+): CraniofacialMeasurement | null {
+  if (!tongueRestLandmarks.length || !frontScale) return null;
+  const upper = tongueRestLandmarks.find(l => l.index === 13);
+  const lower = tongueRestLandmarks.find(l => l.index === 14);
+  if (!upper || !lower) return null;
+  const gapMm = Math.round(Math.abs(lower.y - upper.y) * 480 * frontScale);
+  return {
+    name: 'Resting Lip Gap',
+    valueMm: gapMm,
+    refMm: 1,
+    norm: '0–2 mm',
+    significance: 'Open mouth at rest indicates lip incompetence and potential mouth breathing; associated with nasal obstruction and OSA',
+    flag: gapMm > 5 ? 'high' : gapMm > 2 ? 'elevated' : 'normal',
+  };
 }
 
 function estimateMallampati(mouthLandmarks?: PredictRequest['landmarks']['mouth_open']): number {
@@ -166,34 +272,84 @@ function assessNasalRisk(
 }
 
 function mockPredict(req: PredictRequest): PredictResponse {
-  const { age } = req.demographics;
-  const score = req.stopBang?.score ?? 0;
-  
+  const { age, weight, height } = req.demographics;
+  const bmi = weight / Math.pow(height / 100, 2);
+  const sbScore = req.stopBang?.score ?? 0;
+
+  // ── Compute all image measurements ──
   const mallampatiScore = estimateMallampati(req.landmarks.mouth_open);
   const nasalAssessment = assessNasalRisk(req.landmarks.nasal, req.demographics.gender);
-  
-  const pct = score / 8;
-  let risk: RiskLevel = pct >= 0.50 ? 'red' : pct >= 0.25 || age > 55 ? 'yellow' : 'green';
-  
-  // High Mallampati increases risk
-  if (mallampatiScore >= 3 && risk === 'green') risk = 'yellow';
-  if (mallampatiScore === 4 && risk === 'yellow') risk = 'red';
+  const frontScale = estimatePixelScale(req.landmarks.front, 640, 480);
 
-  // Nasal Assessment increases risk
-  if (nasalAssessment?.overallRisk === 'high' && risk === 'green') risk = 'yellow';
-  if (nasalAssessment?.overallRisk === 'high' && risk === 'yellow') risk = 'red';
+  const frontMeasurements = computeCraniofacialMeasurements(req.landmarks.front) ?? mockMeasurements('yellow');
 
-  const confidence = Math.min(0.97, 0.72 + Math.random() * 0.22);
+  const profileLandmarks = (req.landmarks.left?.length ? req.landmarks.left : req.landmarks.right) ?? [];
+  const profileMeasurements = frontScale ? computeProfileMeasurements(profileLandmarks, frontScale) : [];
+
+  const maxConstr = frontScale ? computeMaxillaryConstriction(req.landmarks.front, frontScale) : null;
+  const lipGap    = frontScale ? computeRestingLipGap(req.landmarks.tongue_rest ?? [], frontScale) : null;
+
+  // ── Extract key ratios for scoring ──
+  const mMap       = new Map(frontMeasurements.map(m => [m.name, m.valueMm]));
+  const bizygo     = mMap.get('Bizygomatic Width');
+  const bigon      = mMap.get('Bigonial Width');
+  const totH       = mMap.get('Total Facial Height');
+  const lowH       = mMap.get('Lower Face Height');
+  const jawRatio   = bizygo && bigon ? bigon / bizygo : undefined;
+  const lfRatio    = lowH && totH   ? lowH / totH   : undefined;
+  const chinMm     = profileMeasurements.find(m => m.name === 'Chin Projection')?.valueMm;
+  const convexDeg  = profileMeasurements.find(m => m.name === 'Facial Convexity')?.valueMm;
+  const maxIdx     = maxConstr?.valueMm;
+  const lipGapMm   = lipGap?.valueMm ?? 0;
+
+  // ── Module A: Image score (weighted average of each feature, 0–1) ──
+  let aSum = 0; let aN = 0;
+  const a = (v: number) => { aSum += v; aN++; };
+
+  a((mallampatiScore - 1) / 3);                                                        // Mallampati Class 1→0, 4→1
+  if (jawRatio   !== undefined) a(jawRatio < 0.65 ? 0.9 : jawRatio < 0.70 ? 0.5 : 0.1);
+  if (lfRatio    !== undefined) a(lfRatio  > 0.65 ? 0.9 : lfRatio  > 0.60 ? 0.5 : 0.1);
+  if (chinMm     !== undefined) a(chinMm   < 0    ? 0.9 : chinMm   < 3    ? 0.5 : 0.1);
+  if (convexDeg  !== undefined) a(convexDeg < 155 ? 0.9 : convexDeg < 163 ? 0.5 : 0.1);
+  if (nasalAssessment) a(nasalAssessment.overallRisk === 'high' ? 0.9 : nasalAssessment.overallRisk === 'moderate' ? 0.5 : 0.1);
+  if (maxIdx     !== undefined) a(maxIdx   < 14   ? 0.9 : maxIdx   < 16   ? 0.5 : 0.1);
+  if (lipGapMm   >  0)         a(lipGapMm  > 5   ? 0.9 : lipGapMm  > 2   ? 0.5 : 0.1);
+
+  const imageScore = aN > 0 ? aSum / aN : 0.30;
+
+  // ── Module B: Questionnaire score ──
+  const questionnaireScore = sbScore / 8;
+
+  // ── Module C: Clinical score ──
+  const bmiScore  = bmi > 35 ? 1.0 : bmi > 30 ? 0.6 : bmi > 25 ? 0.3 : 0.1;
+  const neckScore = (req.stopBang?.neck ?? false) ? 0.9 : 0.1;
+  const clinicalScore = bmiScore * 0.6 + neckScore * 0.4;
+
+  // ── Weighted final score (infographic: A=45%, B=35%, C=20%) ──
+  const finalScore = imageScore * 0.45 + questionnaireScore * 0.35 + clinicalScore * 0.20;
+
+  let risk: RiskLevel = finalScore >= 0.55 ? 'red' : finalScore >= 0.30 ? 'yellow' : 'green';
+  if (age > 55 && risk === 'green') risk = 'yellow';
+
+  // Confidence is higher when real image data is available
+  const confidence = Math.min(0.97, 0.65 + finalScore * 0.20 + (frontScale ? 0.08 : 0) + Math.random() * 0.04);
+
   const messages: Record<RiskLevel, string> = {
-    green: 'Facial geometry analysis indicates low OSA risk markers. Recommend standard dental check-up.',
+    green:  'Facial geometry analysis indicates low OSA risk markers. Recommend standard dental check-up.',
     yellow: 'Moderate risk indicators detected. Clinical evaluation by an ENT specialist is advised.',
-    red: 'High-risk airway markers present. Urgent referral for polysomnography strongly recommended.',
+    red:    'High-risk airway markers present. Urgent referral for polysomnography strongly recommended.',
   };
+
   return {
     risk, confidence,
     message: messages[risk],
     scan_id: Math.random().toString(36).slice(2, 12),
-    measurements: computeCraniofacialMeasurements(req.landmarks.front) ?? mockMeasurements(risk),
+    measurements: [
+      ...frontMeasurements,
+      ...profileMeasurements,
+      ...(maxConstr ? [maxConstr] : []),
+      ...(lipGap    ? [lipGap]    : []),
+    ],
     mallampatiScore,
     nasalAssessment,
   };

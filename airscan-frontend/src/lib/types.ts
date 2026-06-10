@@ -73,6 +73,7 @@ export interface CraniofacialMeasurement {
   norm: string;
   significance: string;
   flag: 'normal' | 'elevated' | 'high';
+  unit?: string; // defaults to 'mm'; use '°' for angles, '%' for ratios
 }
 
 export interface NasalAssessment {

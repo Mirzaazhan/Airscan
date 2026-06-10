@@ -67,6 +67,27 @@ export default function ResultsPage() {
   const g = demo.gender.toLowerCase();
   const sexFactor = g === 'male' ? 0.72 : g === 'female' ? 0.38 : 0.50;
 
+  // Profile & oral measurements from the measurements array
+  const getMeasure = (n: string) => result.measurements?.find(m => m.name === n);
+  const chinProj   = getMeasure('Chin Projection');
+  const facialConv = getMeasure('Facial Convexity');
+  const maxConstrM = getMeasure('Maxillary Width Index');
+  const lipGapM    = getMeasure('Resting Lip Gap');
+
+  // Build summary bar rows: [label, barValue 0–1, flag, displayText?]
+  const cranioRows: Array<[string, number, string, string?]> = [
+    ['Jaw-to-skull ratio',    jawToSkull,    jawFlag],
+    ['Lower face ratio',      lowerFaceRatio, lowerFaceFlag],
+    [`Mallampati Class ${result.mallampatiScore || 2}`, (result.mallampatiScore || 2) / 4, (result.mallampatiScore || 2) >= 3 ? 'high' : (result.mallampatiScore || 2) === 2 ? 'elevated' : 'normal'],
+    ['Facial width / height', facialRatio,   'normal'],
+    ['Neck circumference', result.neckMeasurement ? Math.min(1, result.neckMeasurement.circumferenceMm / 500) : 0.48, result.neckMeasurement ? (result.neckMeasurement.circumferenceMm > (g === 'male' ? 430 : 400) ? 'high' : result.neckMeasurement.circumferenceMm > (g === 'male' ? 390 : 370) ? 'elevated' : 'normal') : 'normal', result.neckMeasurement ? `${Math.round(result.neckMeasurement.circumferenceMm)} mm` : '–'],
+  ];
+  // Append profile & oral rows only when the capture was done
+  if (chinProj)   cranioRows.push(['Chin Projection',  Math.min(1, Math.max(0, (chinProj.valueMm   + 5) / 20)),    chinProj.flag,   `${chinProj.valueMm} mm`]);
+  if (facialConv) cranioRows.push(['Facial Convexity', Math.min(1, Math.max(0, (facialConv.valueMm - 150) / 30)),  facialConv.flag, `${facialConv.valueMm}°`]);
+  if (maxConstrM) cranioRows.push(['Maxillary Index',  Math.min(1, maxConstrM.valueMm / 25),                       maxConstrM.flag, `${maxConstrM.valueMm}%`]);
+  if (lipGapM)    cranioRows.push(['Resting Lip Gap',  Math.min(1, lipGapM.valueMm    / 8),                        lipGapM.flag,    `${lipGapM.valueMm} mm`]);
+
   const handleDownloadPDF = async () => {
     setPdfLoading(true);
     try {
@@ -149,19 +170,13 @@ export default function ResultsPage() {
               <div className="results-summary-grid">
                 <div className="card" style={{ padding: 24 }}>
                   <div className="label" style={{ marginBottom: 12 }}>Craniofacial features</div>
-                  {[
-                    ['Jaw-to-skull ratio',    jawToSkull,    jawFlag],
-                    ['Lower face ratio',      lowerFaceRatio, lowerFaceFlag],
-                    [`Mallampati Class ${result.mallampatiScore || 2}`, (result.mallampatiScore || 2) / 4, (result.mallampatiScore || 2) >= 3 ? 'high' : (result.mallampatiScore || 2) === 2 ? 'elevated' : 'normal'],
-                    ['Facial width / height', facialRatio,   'normal'],
-                    ['Neck circumference est.', result.neckMeasurement ? Math.min(1, result.neckMeasurement.circumferenceMm / 500) : 0.48, result.neckMeasurement ? (result.neckMeasurement.circumferenceMm > 400 ? 'high' : 'normal') : 'normal'],
-                  ].map(([name, val, flag]) => {
+                  {cranioRows.map(([name, val, flag, display]) => {
                     const fc = flag === 'high' ? 'var(--terra)' : flag === 'elevated' ? 'var(--amber)' : 'var(--sage)';
                     return (
                       <div key={String(name)} style={{ marginBottom: 10 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
                           <span style={{ color: 'var(--ink-2)' }}>{String(name)}</span>
-                          <span className="mono" style={{ color: 'var(--ink-3)' }}>{Number(val).toFixed(2)}</span>
+                          <span className="mono" style={{ color: 'var(--ink-3)' }}>{display ?? Number(val).toFixed(2)}</span>
                         </div>
                         <div style={{ height: 6, background: 'var(--paper-2)', borderRadius: 3, overflow: 'hidden' }}>
                           <div style={{ height: '100%', width: `${Number(val) * 100}%`, background: fc, borderRadius: 3 }} />
@@ -249,7 +264,7 @@ export default function ResultsPage() {
                             <div style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2, lineHeight: 1.4 }}>{m.significance}</div>
                           </div>
                           <div className="mono" style={{ fontSize: 14, fontWeight: 600, color: FLAG_COLOR[m.flag] }}>
-                            {m.valueMm} mm
+                            {m.valueMm}{m.unit ?? ' mm'}
                           </div>
                           <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>{m.norm} mm</div>
                           <div>

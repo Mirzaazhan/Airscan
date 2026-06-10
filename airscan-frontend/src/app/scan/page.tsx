@@ -46,7 +46,8 @@ export default function ScanPage() {
     addCapture(frame);
     
     if (frame.angle === 'neck' && frame.neckMeasurement) {
-      const isNeckLarge = frame.neckMeasurement.circumferenceMm > 400; // > 40cm
+      const neckThresholdMm = stopBang?.gender ? 430 : 400; // Male >43 cm, Female >40 cm (per infographic)
+      const isNeckLarge = frame.neckMeasurement.circumferenceMm > neckThresholdMm;
       if (stopBang) {
         const newScore = stopBang.score + (isNeckLarge && !stopBang.neck ? 1 : 0) - (!isNeckLarge && stopBang.neck ? 1 : 0);
         setStopBang({ ...stopBang, neck: isNeckLarge, score: newScore });
@@ -101,7 +102,14 @@ export default function ScanPage() {
         },
       });
     } catch {
-      res = predictFallback(demo, sb, allCaptures.find(f => f.angle === 'front')?.landmarks ?? []);
+      res = predictFallback(demo, sb, {
+        front:       allCaptures.find(f => f.angle === 'front')?.landmarks       ?? [],
+        left:        allCaptures.find(f => f.angle === 'left')?.landmarks        ?? [],
+        right:       allCaptures.find(f => f.angle === 'right')?.landmarks       ?? [],
+        mouth_open:  allCaptures.find(f => f.angle === 'mouth_open')?.landmarks  ?? [],
+        tongue_rest: allCaptures.find(f => f.angle === 'tongue_rest')?.landmarks ?? [],
+        nasal:       allCaptures.find(f => f.angle === 'nasal')?.landmarks       ?? [],
+      });
     }
 
     const neckMeasurement = captures.find(c => c.angle === 'neck')?.neckMeasurement;
