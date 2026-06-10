@@ -49,10 +49,8 @@ export default function LandingPage() {
       try {
         await signInWithPopup(auth, googleProvider);
         router.push('/dashboard');
-      } catch (err: unknown) {
-        if ((err as { code?: string }).code === 'auth/popup-blocked') {
-          await signInWithRedirect(auth, googleProvider);
-        }
+      } catch {
+        await signInWithRedirect(auth, googleProvider);
       }
     } catch { /* ignore */ } finally {
       setSigningIn(false);
