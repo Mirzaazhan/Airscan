@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Disclaimer } from '@/components/ui/Disclaimer';
 import { IconArrowLeft, IconArrow } from '@/components/ui/Icons';
+import { useScan } from '@/contexts/ScanContext';
 import type { Demographics } from '@/lib/types';
 
 interface Props {
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export function DemographicsScreen({ onSubmit, onBack, initial }: Props) {
+  const { user } = useScan();
   const [form, setForm] = useState<Partial<Demographics>>(initial ?? {
     age: undefined, gender: '', weight: undefined, height: undefined, race: '',
   });
@@ -76,7 +78,7 @@ export function DemographicsScreen({ onSubmit, onBack, initial }: Props) {
             {/* Full Name placeholder row */}
             <div>
               <label className="label" style={{ display: 'block', marginBottom: 8, color: 'var(--ink-2)' }}>Full Name</label>
-              <input type="text" className="input-field" placeholder="e.g. Jane Doe" disabled value={`${form.age ? '' : ''}`} style={{ opacity: 0.5, cursor: 'not-allowed' }} />
+              <input type="text" className="input-field" placeholder="e.g. Jane Doe" disabled value={user?.displayName ?? ''} style={{ opacity: 0.5, cursor: 'not-allowed' }} />
             </div>
 
             {/* Age */}

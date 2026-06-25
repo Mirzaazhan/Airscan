@@ -84,7 +84,14 @@ export function ScanProvider({ children }: { children: ReactNode }) {
             setUser(u);
 
             // Subscribe to Firestore scan history
-            import('firebase/firestore').then(({ collection, query, orderBy, onSnapshot }) => {
+            import('firebase/firestore').then(({ collection, query, orderBy, onSnapshot, doc, setDoc }) => {
+              setDoc(doc(db, 'users', fbUser.uid), {
+                displayName: u.displayName,
+                email: u.email,
+              }, { merge: true }).catch(err => {
+                console.error('[Airscan] Firestore profile write error:', err.code, err.message);
+              });
+
               unsubScans?.();
               const q = query(collection(db, 'users', fbUser.uid, 'scans'), orderBy('createdAt', 'desc'));
               unsubScans = onSnapshot(
