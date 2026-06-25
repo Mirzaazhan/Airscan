@@ -16,6 +16,16 @@ export interface CapturedFrame {
   yawAtCapture: number;
   capturedAt: string;
   neckMeasurement?: NeckMeasurement;
+  fullLandmarks?: LandmarkPoint[];
+  videoWidth?: number;
+  videoHeight?: number;
+}
+
+export interface FaceMeshExport {
+  landmarks: LandmarkPoint[];
+  videoWidth: number;
+  videoHeight: number;
+  scaleMmPerPixel: number;
 }
 
 export interface NeckMeasurement {
@@ -131,6 +141,7 @@ export interface PredictResponse {
   neckMeasurement?: NeckMeasurement;
   mallampatiScore?: number;
   nasalAssessment?: NasalAssessment;
+  faceMesh?: FaceMeshExport;
 }
 
 export interface ScanRecord {

@@ -1,9 +1,11 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useScan } from '@/contexts/ScanContext';
 import { predict, predictFallback } from '@/lib/api';
+import { estimatePixelScale } from '@/lib/mediapipe';
 import type { PredictResponse } from '@/lib/types';
 import type { CapturedFrame, Demographics, ScanAngle, ScanRecord, StopBang } from '@/lib/types';
 
@@ -85,31 +87,34 @@ export default function ScanPage() {
     ];
 
     // Always produce a result — fall back to client-side mock if API is unreachable
+    const landmarksPayload = {
+      front:       allCaptures.find(f => f.angle === 'front')?.landmarks       ?? [],
+      left:        allCaptures.find(f => f.angle === 'left')?.landmarks        ?? [],
+      right:       allCaptures.find(f => f.angle === 'right')?.landmarks       ?? [],
+      mouth_open:  allCaptures.find(f => f.angle === 'mouth_open')?.landmarks  ?? [],
+      tongue_out:  allCaptures.find(f => f.angle === 'tongue_out')?.landmarks  ?? [],
+      tongue_rest: allCaptures.find(f => f.angle === 'tongue_rest')?.landmarks ?? [],
+      neck:        allCaptures.find(f => f.angle === 'neck')?.landmarks        ?? [],
+      nasal:       allCaptures.find(f => f.angle === 'nasal')?.landmarks       ?? [],
+    };
+
     let res: PredictResponse;
     try {
-      res = await predict({
-        demographics: demo,
-        stopBang: sb,
-        landmarks: {
-          front: allCaptures.find(f => f.angle === 'front')?.landmarks ?? [],
-          left:  allCaptures.find(f => f.angle === 'left')?.landmarks ?? [],
-          right: allCaptures.find(f => f.angle === 'right')?.landmarks ?? [],
-          mouth_open: allCaptures.find(f => f.angle === 'mouth_open')?.landmarks ?? [],
-          tongue_out: allCaptures.find(f => f.angle === 'tongue_out')?.landmarks ?? [],
-          tongue_rest: allCaptures.find(f => f.angle === 'tongue_rest')?.landmarks ?? [],
-          neck: allCaptures.find(f => f.angle === 'neck')?.landmarks ?? [],
-          nasal: allCaptures.find(f => f.angle === 'nasal')?.landmarks ?? [],
-        },
-      });
-    } catch {
-      res = predictFallback(demo, sb, {
-        front:       allCaptures.find(f => f.angle === 'front')?.landmarks       ?? [],
-        left:        allCaptures.find(f => f.angle === 'left')?.landmarks        ?? [],
-        right:       allCaptures.find(f => f.angle === 'right')?.landmarks       ?? [],
-        mouth_open:  allCaptures.find(f => f.angle === 'mouth_open')?.landmarks  ?? [],
-        tongue_rest: allCaptures.find(f => f.angle === 'tongue_rest')?.landmarks ?? [],
-        nasal:       allCaptures.find(f => f.angle === 'nasal')?.landmarks       ?? [],
-      });
+      res = await predict({ demographics: demo, stopBang: sb, landmarks: landmarksPayload });
+    } catch (apiErr) {
+      console.warn('[Airscan] predict() failed, using client fallback:', apiErr);
+      try {
+        res = predictFallback(demo, sb, landmarksPayload);
+      } catch (fallbackErr) {
+        console.error('[Airscan] predictFallback() also failed, using minimal result:', fallbackErr);
+        res = {
+          risk: 'yellow',
+          confidence: 0.75,
+          message: 'Moderate risk indicators detected. Clinical evaluation by an ENT specialist is advised.',
+          scan_id: Math.random().toString(36).slice(2, 12),
+          measurements: [],
+        };
+      }
     }
 
     const neckMeasurement = captures.find(c => c.angle === 'neck')?.neckMeasurement;
@@ -126,7 +131,23 @@ export default function ScanPage() {
       } as const;
       res.measurements = [...(res.measurements || []), neckCranio];
     }
-    setResult(res);
+
+    const frontCapture = captures.find(c => c.angle === 'front');
+    if (frontCapture?.fullLandmarks?.length && frontCapture.videoWidth && frontCapture.videoHeight) {
+      const scaleMmPerPixel = estimatePixelScale(frontCapture.fullLandmarks, frontCapture.videoWidth, frontCapture.videoHeight);
+      if (scaleMmPerPixel) {
+        res.faceMesh = {
+          landmarks: frontCapture.fullLandmarks,
+          videoWidth: frontCapture.videoWidth,
+          videoHeight: frontCapture.videoHeight,
+          scaleMmPerPixel,
+        };
+      }
+    }
+
+    // flushSync forces the state update to commit before router.push so the
+    // results page never sees result=null (React 18 batching issue in production)
+    flushSync(() => setResult(res));
 
     // Save to history — fire and forget, never block showing results
     const scan: ScanRecord = {

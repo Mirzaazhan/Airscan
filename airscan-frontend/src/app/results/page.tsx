@@ -26,6 +26,7 @@ export default function ResultsPage() {
   const { result, demographics, stopBang } = useScan();
   const [activeTab, setActiveTab] = useState<Tab>('summary');
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [plyLoading, setPlyLoading] = useState(false);
 
   if (!result) {
     return (
@@ -103,6 +104,23 @@ export default function ResultsPage() {
       });
     } finally {
       setPdfLoading(false);
+    }
+  };
+
+  const handleDownloadPLY = async () => {
+    if (!result.faceMesh) return;
+    setPlyLoading(true);
+    try {
+      const { generateFacePLY, downloadPLY } = await import('@/lib/ply');
+      const ply = await generateFacePLY(
+        result.faceMesh.landmarks,
+        result.faceMesh.videoWidth,
+        result.faceMesh.videoHeight,
+        result.faceMesh.scaleMmPerPixel
+      );
+      downloadPLY(ply, `airscan-face-${result.scan_id}.ply`);
+    } finally {
+      setPlyLoading(false);
     }
   };
 
@@ -294,6 +312,17 @@ export default function ResultsPage() {
               <div className="card" style={{ padding: 20 }}>
                 <ThreeDModel />
               </div>
+              {result.faceMesh && (
+                <div className="card" style={{ padding: 16, marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                  <div>
+                    <div className="label" style={{ marginBottom: 4 }}>Export your scan</div>
+                    <div style={{ fontSize: 12, color: 'var(--ink-3)' }}>Download a 3D mesh (.ply) built from your front-angle scan — open it in MeshLab, Blender, or similar.</div>
+                  </div>
+                  <button className="btn btn-secondary" onClick={handleDownloadPLY} disabled={plyLoading} style={{ flexShrink: 0 }}>
+                    {plyLoading ? 'Generating…' : 'Export 3D Model (.ply)'}
+                  </button>
+                </div>
+              )}
               <div className="card" style={{ padding: 16, marginTop: 12 }}>
                 <div className="label" style={{ marginBottom: 10 }}>Landmark index</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: 8 }}>

@@ -81,6 +81,10 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
       }
     }
 
+    const fullLandmarks: LandmarkPoint[] | undefined = angle === 'front'
+      ? landmarks.map((l, i) => ({ index: i, x: l.x, y: l.y, z: l.z }))
+      : undefined;
+
     return {
       angle,
       imageDataUrl,
@@ -88,6 +92,9 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
       yawAtCapture: estimateYaw(landmarks),
       capturedAt: new Date().toISOString(),
       neckMeasurement,
+      fullLandmarks,
+      videoWidth: canvas.width,
+      videoHeight: canvas.height,
     };
   }, [angle]);
 
