@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    match /users/{uid} {
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(uid) && request.resource.data.get('role', 'user') == 'user';
+      allow update: if (isOwner(uid) && request.resource.data.get('role', 'user') == resource.data.get('role', 'user')) || isAdmin();
+      allow delete: if false;
+
+      match /scans/{scanId} {
+        allow read, write: if isOwner(uid);
+        allow read: if isAdmin();
+      }
+    }
+
+    // Admin-only cross-user scan history (collectionGroup('scans') queries)
+    match /{path=**}/scans/{scanId} {
+      allow read: if isAdmin();
+    }
+  }
+}

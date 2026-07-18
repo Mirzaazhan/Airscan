@@ -35,7 +35,7 @@ function IconScanSmall() {
 export function TopBar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useScan();
+  const { user, isAdmin } = useScan();
   const [dropOpen, setDropOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
@@ -44,6 +44,7 @@ export function TopBar() {
     { id: '/dashboard', label: 'Dashboard' },
     { id: '/history',   label: 'History' },
     { id: '/settings',  label: 'Settings' },
+    ...(isAdmin ? [{ id: '/admin', label: 'Admin' }] : []),
   ];
 
   const current = '/' + pathname.split('/')[1];

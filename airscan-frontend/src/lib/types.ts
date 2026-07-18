@@ -165,4 +165,6 @@ export interface UserProfile {
   displayName: string;
   createdAt: number;
   scanCount: number;
+  role?: 'admin' | 'user';
+  lastLoginAt?: number;
 }

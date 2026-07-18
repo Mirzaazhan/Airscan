@@ -11,6 +11,7 @@ interface ScanContextValue {
   user: UserShape | null;
   authLoaded: boolean;
   setUser: (u: UserShape | null) => void;
+  isAdmin: boolean;
 
   demographics: Demographics | null;
   setDemographics: (d: Demographics) => void;
@@ -53,6 +54,7 @@ function makeMockScans(): ScanRecord[] {
 export function ScanProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserShape | null>(null);
   const [authLoaded, setAuthLoaded] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [demographics, setDemographics] = useState<Demographics | null>(null);
   const [stopBang, setStopBang] = useState<StopBang | null>(null);
   const [captures, setCaptures] = useState<CapturedFrame[]>([]);
@@ -64,6 +66,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     if (!FIREBASE_ENABLED) {
       setUser({ displayName: 'Amira Mansor', email: 'amira.mansor@um.edu.my', uid: 'mock-uid-001' });
       setScans(makeMockScans());
+      setIsAdmin(true); // mock mode has no real Firebase auth — allow exploring admin UI locally
       setAuthLoaded(true);
       return;
     }
@@ -71,6 +74,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     // Lazy-load Firebase to avoid import errors when credentials are absent
     let unsubAuth: (() => void) | undefined;
     let unsubScans: (() => void) | undefined;
+    let unsubProfile: (() => void) | undefined;
 
     import('firebase/auth').then(({ onAuthStateChanged }) => {
       import('@/lib/firebase').then(({ auth, db }) => {
@@ -84,12 +88,24 @@ export function ScanProvider({ children }: { children: ReactNode }) {
             setUser(u);
 
             // Subscribe to Firestore scan history
-            import('firebase/firestore').then(({ collection, query, orderBy, onSnapshot, doc, setDoc }) => {
-              setDoc(doc(db, 'users', fbUser.uid), {
-                displayName: u.displayName,
-                email: u.email,
-              }, { merge: true }).catch(err => {
-                console.error('[Airscan] Firestore profile write error:', err.code, err.message);
+            import('firebase/firestore').then(({ collection, query, orderBy, onSnapshot, doc, setDoc, getDoc, serverTimestamp }) => {
+              const userDocRef = doc(db, 'users', fbUser.uid);
+
+              getDoc(userDocRef).then(existing => {
+                const profileWrite: Record<string, unknown> = {
+                  displayName: u.displayName,
+                  email: u.email,
+                  lastLoginAt: serverTimestamp(),
+                };
+                if (!existing.exists()) profileWrite.createdAt = serverTimestamp();
+                setDoc(userDocRef, profileWrite, { merge: true }).catch(err => {
+                  console.error('[Airscan] Firestore profile write error:', err.code, err.message);
+                });
+              });
+
+              unsubProfile?.();
+              unsubProfile = onSnapshot(userDocRef, snap => {
+                setIsAdmin(snap.data()?.role === 'admin');
               });
 
               unsubScans?.();
@@ -108,7 +124,9 @@ export function ScanProvider({ children }: { children: ReactNode }) {
             });
           } else {
             setUser(null);
+            setIsAdmin(false);
             unsubScans?.();
+            unsubProfile?.();
             setScans([]);
           }
           setAuthLoaded(true);
@@ -119,6 +137,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
     return () => {
       unsubAuth?.();
       unsubScans?.();
+      unsubProfile?.();
     };
   }, []);
 
@@ -182,7 +201,7 @@ export function ScanProvider({ children }: { children: ReactNode }) {
 
   return (
     <ScanContext.Provider value={{
-      user, authLoaded, setUser,
+      user, authLoaded, setUser, isAdmin,
       demographics, setDemographics,
       stopBang, setStopBang,
       captures, addCapture, resetCaptures,
