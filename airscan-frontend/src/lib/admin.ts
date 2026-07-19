@@ -69,7 +69,7 @@ export async function listUsers(cursor?: QueryDocumentSnapshot): Promise<{
   hasMore: boolean;
 }> {
   const constraints = [
-    orderBy('createdAt', 'desc'),
+    orderBy('email'),
     ...(cursor ? [startAfter(cursor)] : []),
     limit(PAGE_SIZE),
   ] as const;
