@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import type { CapturedFrame, Demographics, PredictResponse, ScanRecord, StopBang, ScanAngle } from '@/lib/types';
+import type { CapturedFrame, Demographics, PaediatricSleepQuestionnaire, PatientType, PredictResponse, ScanRecord, StopBang, ScanAngle } from '@/lib/types';
 
 const FIREBASE_ENABLED = !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
@@ -13,10 +13,14 @@ interface ScanContextValue {
   setUser: (u: UserShape | null) => void;
   isAdmin: boolean;
 
+  patientType: PatientType;
+  setPatientType: (t: PatientType) => void;
   demographics: Demographics | null;
   setDemographics: (d: Demographics) => void;
   stopBang: StopBang | null;
   setStopBang: (s: StopBang) => void;
+  psq: PaediatricSleepQuestionnaire | null;
+  setPsq: (p: PaediatricSleepQuestionnaire) => void;
   captures: CapturedFrame[];
   addCapture: (f: CapturedFrame) => void;
   resetCaptures: () => void;
@@ -46,7 +50,7 @@ function makeMockScans(): ScanRecord[] {
     risk: risks[i],
     confidence: confs[i],
     message: messages[risks[i]],
-    demographics: { age: 42, gender: 'Male', weight: 78, height: 172, race: 'Malay' },
+    demographics: { age: 42, gender: 'Male', weight: 78, height: 172, race: 'Malay', patientType: 'adult' },
     stopBang: { snoring: true, tired: false, observed: false, pressure: false, bmi: false, age: false, neck: false, gender: true, score: 2 },
   }));
 }
@@ -55,8 +59,10 @@ export function ScanProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserShape | null>(null);
   const [authLoaded, setAuthLoaded] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [patientType, setPatientType] = useState<PatientType>('adult');
   const [demographics, setDemographics] = useState<Demographics | null>(null);
   const [stopBang, setStopBang] = useState<StopBang | null>(null);
+  const [psq, setPsq] = useState<PaediatricSleepQuestionnaire | null>(null);
   const [captures, setCaptures] = useState<CapturedFrame[]>([]);
   const [result, setResult] = useState<PredictResponse | null>(null);
   const [scans, setScans] = useState<ScanRecord[]>([]);
@@ -202,8 +208,10 @@ export function ScanProvider({ children }: { children: ReactNode }) {
   return (
     <ScanContext.Provider value={{
       user, authLoaded, setUser, isAdmin,
+      patientType, setPatientType,
       demographics, setDemographics,
       stopBang, setStopBang,
+      psq, setPsq,
       captures, addCapture, resetCaptures,
       result, setResult,
       scans, addScan, deleteScan,

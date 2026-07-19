@@ -23,7 +23,7 @@ type Tab = 'summary' | 'measurements' | '3d';
 
 export default function ResultsPage() {
   const router = useRouter();
-  const { result, demographics, stopBang } = useScan();
+  const { result, demographics, stopBang, psq, patientType } = useScan();
   const [activeTab, setActiveTab] = useState<Tab>('summary');
   const [pdfLoading, setPdfLoading] = useState(false);
   const [plyLoading, setPlyLoading] = useState(false);
@@ -40,7 +40,7 @@ export default function ResultsPage() {
   }
 
   const c = COLOR_MAP[result.risk];
-  const demo = demographics ?? { age: 42, gender: 'Male', weight: 78, height: 172, race: 'Malay' };
+  const demo = demographics ?? { age: 42, gender: 'Male', weight: 78, height: 172, race: 'Malay', patientType: 'adult' as const };
   const bmi = demo.weight / Math.pow(demo.height / 100, 2);
   const date = new Date().toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -204,23 +204,59 @@ export default function ResultsPage() {
                   })}
                 </div>
                 <div className="card" style={{ padding: 24 }}>
-                  <div className="label" style={{ marginBottom: 12 }}>Demographic features</div>
-                  {[
-                    ['BMI', Math.min(1, bmi / 40)],
-                    ['Age group', Math.min(1, demo.age / 80)],
-                    ['Sex factor', sexFactor],
-                    ['Snoring indicator', stopBang?.snoring ? 0.95 : 0.05],
-                  ].map(([name, val]) => (
-                    <div key={String(name)} style={{ marginBottom: 10 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-                        <span style={{ color: 'var(--ink-2)' }}>{String(name)}</span>
-                        <span className="mono" style={{ color: 'var(--ink-3)' }}>{Number(val).toFixed(2)}</span>
+                  <div className="label" style={{ marginBottom: 12 }}>
+                    {patientType === 'paeds' ? 'PSQ & Demographic features' : 'Demographic features'}
+                  </div>
+                  {patientType === 'paeds' && psq ? (
+                    <>
+                      {/* PSQ score banner */}
+                      <div style={{ padding: '12px 16px', marginBottom: 14, background: psq.positiveScreen ? 'var(--amber-bg)' : 'var(--sage-bg)', border: '1px solid ' + (psq.positiveScreen ? 'var(--amber)' : 'var(--sage)'), borderRadius: 'var(--r-md)', display: 'flex', gap: 16, alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: psq.positiveScreen ? 'var(--amber-ink)' : 'var(--sage-ink)', marginBottom: 2 }}>PSQ Score</div>
+                          <div style={{ fontSize: 24, fontWeight: 700, fontFamily: 'var(--font-mono)', color: 'var(--ink)' }}>{psq.score.toFixed(2)}</div>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--ink-2)', lineHeight: 1.55 }}>
+                          {psq.numYes} Yes out of {psq.numAnswered} answered<br />
+                          <span style={{ fontWeight: 600 }}>{psq.positiveScreen ? 'Positive screen ≥ 0.33' : 'Negative screen < 0.33'}</span>
+                        </div>
                       </div>
-                      <div style={{ height: 6, background: 'var(--paper-2)', borderRadius: 3, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${Number(val) * 100}%`, background: 'var(--petrol)', borderRadius: 3 }} />
-                      </div>
-                    </div>
-                  ))}
+                      {[
+                        ['PSQ Score', psq.score],
+                        ['BMI', Math.min(1, bmi / 30)],
+                        ['Age group', Math.min(1, demo.age / 18)],
+                        ['Sex factor', sexFactor],
+                      ].map(([name, val]) => (
+                        <div key={String(name)} style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                            <span style={{ color: 'var(--ink-2)' }}>{String(name)}</span>
+                            <span className="mono" style={{ color: 'var(--ink-3)' }}>{Number(val).toFixed(2)}</span>
+                          </div>
+                          <div style={{ height: 6, background: 'var(--paper-2)', borderRadius: 3, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${Number(val) * 100}%`, background: 'var(--sage)', borderRadius: 3 }} />
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      {[
+                        ['BMI', Math.min(1, bmi / 40)],
+                        ['Age group', Math.min(1, demo.age / 80)],
+                        ['Sex factor', sexFactor],
+                        ['Snoring indicator', stopBang?.snoring ? 0.95 : 0.05],
+                      ].map(([name, val]) => (
+                        <div key={String(name)} style={{ marginBottom: 10 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+                            <span style={{ color: 'var(--ink-2)' }}>{String(name)}</span>
+                            <span className="mono" style={{ color: 'var(--ink-3)' }}>{Number(val).toFixed(2)}</span>
+                          </div>
+                          <div style={{ height: 6, background: 'var(--paper-2)', borderRadius: 3, overflow: 'hidden' }}>
+                            <div style={{ height: '100%', width: `${Number(val) * 100}%`, background: 'var(--petrol)', borderRadius: 3 }} />
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
                   <div style={{ marginTop: 14, padding: '10px 14px', background: 'var(--paper-2)', borderRadius: 'var(--r-sm)', fontSize: 11, color: 'var(--ink-3)', lineHeight: 1.55 }}>
                     Values normalised 0–1. Flags are model-internal and not standalone diagnostic criteria.
                   </div>
@@ -257,9 +293,19 @@ export default function ResultsPage() {
               <div className="card" style={{ padding: 20, marginTop: 16 }}>
                 <h3 style={{ fontSize: 13, fontWeight: 600, margin: '0 0 8px' }}>Clinical interpretation</h3>
                 <p style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.6, margin: 0 }}>
-                  {result.risk === 'green' && 'No significant craniofacial markers associated with airway obstruction were detected. Continue routine oral health monitoring and re-screen annually.'}
-                  {result.risk === 'yellow' && 'Several moderate risk indicators were detected. A follow-up consultation with a physician or ENT specialist is recommended within 4 weeks.'}
-                  {result.risk === 'red' && 'Multiple strong risk indicators were detected. You are advised to seek evaluation from a qualified medical practitioner promptly. Polysomnography (sleep study) is strongly recommended.'}
+                  {patientType === 'paeds' ? (
+                    <>
+                      {result.risk === 'green' && 'No significant markers of sleep-disordered breathing were detected. Continue routine paediatric check-ups and re-screen if symptoms develop.'}
+                      {result.risk === 'yellow' && 'Moderate indicators of sleep-disordered breathing were detected. A follow-up consultation with a paediatrician or paediatric ENT specialist is recommended.'}
+                      {result.risk === 'red' && 'Multiple strong risk markers for paediatric sleep-disordered breathing were detected. Prompt referral to a paediatric sleep specialist or ENT is strongly recommended.'}
+                    </>
+                  ) : (
+                    <>
+                      {result.risk === 'green' && 'No significant craniofacial markers associated with airway obstruction were detected. Continue routine oral health monitoring and re-screen annually.'}
+                      {result.risk === 'yellow' && 'Several moderate risk indicators were detected. A follow-up consultation with a physician or ENT specialist is recommended within 4 weeks.'}
+                      {result.risk === 'red' && 'Multiple strong risk indicators were detected. You are advised to seek evaluation from a qualified medical practitioner promptly. Polysomnography (sleep study) is strongly recommended.'}
+                    </>
+                  )}
                 </p>
               </div>
             </div>

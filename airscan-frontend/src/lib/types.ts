@@ -1,6 +1,7 @@
 export type ScanAngle = 'front' | 'left' | 'right' | 'mouth_open' | 'tongue_out' | 'tongue_rest' | 'neck' | 'nasal';
 export type RiskLevel = 'green' | 'yellow' | 'red';
 export type LandmarkGroup = 'Cranial' | 'Airway' | 'Jaw' | 'Oral' | 'Facial' | 'Orbital';
+export type PatientType = 'adult' | 'paeds';
 
 export interface LandmarkPoint {
   index: number;
@@ -40,6 +41,15 @@ export interface Demographics {
   weight: number;
   height: number;
   race: string;
+  patientType: PatientType;
+}
+
+export interface PaediatricSleepQuestionnaire {
+  answers: ('yes' | 'no' | 'dont_know')[];
+  numYes: number;
+  numAnswered: number;
+  score: number;
+  positiveScreen: boolean;
 }
 
 export interface StopBang {
@@ -119,7 +129,9 @@ export interface SleepData {
 
 export interface PredictRequest {
   demographics: Demographics;
-  stopBang: StopBang;
+  patientType: PatientType;
+  stopBang?: StopBang;
+  psq?: PaediatricSleepQuestionnaire;
   landmarks: {
     front: LandmarkPoint[];
     left: LandmarkPoint[];
@@ -151,7 +163,9 @@ export interface ScanRecord {
   confidence: number;
   message: string;
   demographics: Demographics;
+  patientType?: PatientType;
   stopBang?: StopBang;
+  psq?: PaediatricSleepQuestionnaire;
   measurements?: CraniofacialMeasurement[];
   neckMeasurement?: NeckMeasurement;
   nasalAssessment?: NasalAssessment;

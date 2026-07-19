@@ -4,23 +4,31 @@ import { useState } from 'react';
 import { Disclaimer } from '@/components/ui/Disclaimer';
 import { IconArrowLeft, IconArrow } from '@/components/ui/Icons';
 import { useScan } from '@/contexts/ScanContext';
-import type { Demographics } from '@/lib/types';
+import type { Demographics, PatientType } from '@/lib/types';
 
 interface Props {
   onSubmit: (form: Demographics) => void;
   onBack: () => void;
   initial: Demographics | null;
+  patientType: PatientType;
 }
 
-export function DemographicsScreen({ onSubmit, onBack, initial }: Props) {
+export function DemographicsScreen({ onSubmit, onBack, initial, patientType }: Props) {
   const { user } = useScan();
+  const isPaeds = patientType === 'paeds';
   const [form, setForm] = useState<Partial<Demographics>>(initial ?? {
-    age: undefined, gender: '', weight: undefined, height: undefined, race: '',
+    age: undefined, gender: '', weight: undefined, height: undefined, race: '', patientType,
   });
   const update = (k: keyof Demographics, v: string | number) => setForm(f => ({ ...f, [k]: v }));
 
   const age = Number(form.age), weight = Number(form.weight), height = Number(form.height);
-  const valid = age >= 5 && age <= 80 && weight >= 10 && weight <= 200 && height >= 50 && height <= 250
+
+  const ageMin  = isPaeds ? 2  : 18;
+  const ageMax  = isPaeds ? 17 : 80;
+  const ageValid = age >= ageMin && age <= ageMax;
+  const ageMismatch = form.age !== undefined && !ageValid;
+
+  const valid = ageValid && weight >= 10 && weight <= 200 && height >= 50 && height <= 250
     && !!form.gender && !!form.race;
   const bmi = weight && height ? (weight / Math.pow(height / 100, 2)).toFixed(1) : null;
 
@@ -63,10 +71,12 @@ export function DemographicsScreen({ onSubmit, onBack, initial }: Props) {
 
         <div className="eyebrow" style={{ color: 'var(--petrol)', marginBottom: 14 }}>Step 2 of 4 · Demographics</div>
         <h2 className="serif" style={{ fontSize: 'clamp(28px, 5vw, 44px)', margin: '0 0 12px', lineHeight: 1.08, letterSpacing: '-0.01em', color: 'var(--ink)' }}>
-          Let&apos;s get to know you better.
+          {isPaeds ? "Tell us about your child." : "Let’s get to know you better."}
         </h2>
         <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.6, marginBottom: 32, maxWidth: 520 }}>
-          Your information helps us personalise your sleep wellness journey and improves risk prediction accuracy.
+          {isPaeds
+            ? "Your child’s information helps us personalise the screening and improves risk prediction accuracy."
+            : "Your information helps us personalise your sleep wellness journey and improves risk prediction accuracy."}
         </p>
 
         <div style={{
@@ -77,24 +87,37 @@ export function DemographicsScreen({ onSubmit, onBack, initial }: Props) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
             {/* Full Name placeholder row */}
             <div>
-              <label className="label" style={{ display: 'block', marginBottom: 8, color: 'var(--ink-2)' }}>Full Name</label>
+              <label className="label" style={{ display: 'block', marginBottom: 8, color: 'var(--ink-2)' }}>
+                {isPaeds ? "Guardian's Name (on file)" : 'Full Name'}
+              </label>
               <input type="text" className="input-field" placeholder="e.g. Jane Doe" disabled value={user?.displayName ?? ''} style={{ opacity: 0.5, cursor: 'not-allowed' }} />
             </div>
 
             {/* Age */}
             <div>
-              <label className="label" style={{ display: 'block', marginBottom: 8, color: 'var(--ink-2)' }}>Date of Birth (Age)</label>
+              <label className="label" style={{ display: 'block', marginBottom: 8, color: 'var(--ink-2)' }}>
+                {isPaeds ? "Child's Age" : 'Date of Birth (Age)'}
+              </label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <input type="number" className="input-field" value={form.age ?? ''}
                   onChange={e => update('age', e.target.value ? +e.target.value : '')}
-                  placeholder="e.g. 42" min={5} max={80} style={{ width: 140 }} />
-                <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>Validated range 5–80</span>
+                  placeholder={isPaeds ? 'e.g. 8' : 'e.g. 42'} min={ageMin} max={ageMax} style={{ width: 140 }} />
+                <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>Validated range {ageMin}–{ageMax}</span>
               </div>
+              {ageMismatch && (
+                <div style={{ marginTop: 8, padding: '8px 12px', background: 'var(--terra-bg)', border: '1px solid var(--terra)', borderRadius: 'var(--r-sm)', fontSize: 12, color: 'var(--terra-ink)', lineHeight: 1.5 }}>
+                  {isPaeds
+                    ? 'Age must be between 2 and 17 for a paediatric patient. If the patient is 18 or older, please go back and select Adult.'
+                    : 'Age must be 18 or older for an adult patient. If the patient is under 18, please go back and select Paediatric.'}
+                </div>
+              )}
             </div>
 
             {/* Sex */}
             <div>
-              <label className="label" style={{ display: 'block', marginBottom: 8, color: 'var(--ink-2)' }}>Gender</label>
+              <label className="label" style={{ display: 'block', marginBottom: 8, color: 'var(--ink-2)' }}>
+                {isPaeds ? "Child's Gender" : 'Gender'}
+              </label>
               <SelectPills value={form.gender ?? ''} onChange={v => update('gender', v)}
                 options={['Male', 'Female', 'Non-binary', 'Prefer not to say']} />
             </div>
@@ -140,7 +163,7 @@ export function DemographicsScreen({ onSubmit, onBack, initial }: Props) {
         <div style={{ display: 'flex', gap: 12, marginTop: 28 }}>
           <button className="btn btn-secondary btn-lg" onClick={onBack}>Back</button>
           <button className="btn btn-primary btn-lg" disabled={!valid} style={{ flex: 1 }}
-            onClick={() => valid && onSubmit(form as Demographics)}>
+            onClick={() => valid && onSubmit({ ...(form as Demographics), patientType })}>
             Continue <IconArrow size={16} />
           </button>
         </div>

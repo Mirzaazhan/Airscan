@@ -44,9 +44,10 @@ function computeCraniofacialMeasurements(frontLandmarks: LandmarkPoint[]): Crani
 export function predictFallback(
   demographics: PredictRequest['demographics'],
   stopBang: PredictRequest['stopBang'],
-  landmarks: PredictRequest['landmarks'] = { front: [], left: [], right: [] }
+  landmarks: PredictRequest['landmarks'] = { front: [], left: [], right: [] },
+  psq?: PredictRequest['psq']
 ): PredictResponse {
-  return mockPredict({ demographics, stopBang, landmarks });
+  return mockPredict({ demographics, patientType: demographics.patientType, stopBang, psq, landmarks });
 }
 
 // ── Profile analysis: chin projection + facial convexity from a side-profile capture ──
@@ -274,9 +275,9 @@ function assessNasalRisk(
 function mockPredict(req: PredictRequest): PredictResponse {
   const { age, weight, height } = req.demographics;
   const bmi = weight / Math.pow(height / 100, 2);
-  const sbScore = req.stopBang?.score ?? 0;
+  const isPaeds = req.patientType === 'paeds';
 
-  // ── Compute all image measurements ──
+  // ── Compute all image measurements (shared for both types) ──
   const mallampatiScore = estimateMallampati(req.landmarks.mouth_open);
   const nasalAssessment = assessNasalRisk(req.landmarks.nasal, req.demographics.gender);
   const frontScale = estimatePixelScale(req.landmarks.front, 640, 480);
@@ -306,7 +307,7 @@ function mockPredict(req: PredictRequest): PredictResponse {
   let aSum = 0; let aN = 0;
   const a = (v: number) => { aSum += v; aN++; };
 
-  a((mallampatiScore - 1) / 3);                                                        // Mallampati Class 1→0, 4→1
+  a((mallampatiScore - 1) / 3);
   if (jawRatio   !== undefined) a(jawRatio < 0.65 ? 0.9 : jawRatio < 0.70 ? 0.5 : 0.1);
   if (lfRatio    !== undefined) a(lfRatio  > 0.65 ? 0.9 : lfRatio  > 0.60 ? 0.5 : 0.1);
   if (chinMm     !== undefined) a(chinMm   < 0    ? 0.9 : chinMm   < 3    ? 0.5 : 0.1);
@@ -317,32 +318,51 @@ function mockPredict(req: PredictRequest): PredictResponse {
 
   const imageScore = aN > 0 ? aSum / aN : 0.30;
 
-  // ── Module B: Questionnaire score ──
-  const questionnaireScore = sbScore / 8;
+  let questionnaireScore: number;
+  let clinicalScore: number;
+  let risk: RiskLevel;
 
-  // ── Module C: Clinical score ──
-  const bmiScore  = bmi > 35 ? 1.0 : bmi > 30 ? 0.6 : bmi > 25 ? 0.3 : 0.1;
-  const neckScore = (req.stopBang?.neck ?? false) ? 0.9 : 0.1;
-  const clinicalScore = bmiScore * 0.6 + neckScore * 0.4;
+  if (isPaeds) {
+    // ── Module B (Paeds): PSQ score (already 0–1, score = yes / (yes+no)) ──
+    questionnaireScore = req.psq?.score ?? 0;
 
-  // ── Weighted final score (infographic: A=45%, B=35%, C=20%) ──
+    // ── Module C (Paeds): overweight flag from PSQ Q16, no neck threshold ──
+    const overweight = req.psq?.answers[15] === 'yes';
+    clinicalScore = overweight ? 0.9 : bmi > 25 ? 0.5 : 0.1;
+
+    const fs = imageScore * 0.45 + questionnaireScore * 0.35 + clinicalScore * 0.20;
+    risk = fs >= 0.55 ? 'red' : fs >= 0.30 ? 'yellow' : 'green';
+  } else {
+    // ── Module B (Adult): STOP-BANG score / 8 ──
+    questionnaireScore = (req.stopBang?.score ?? 0) / 8;
+
+    // ── Module C (Adult): BMI + neck circumference ──
+    const bmiScore  = bmi > 35 ? 1.0 : bmi > 30 ? 0.6 : bmi > 25 ? 0.3 : 0.1;
+    const neckScore = (req.stopBang?.neck ?? false) ? 0.9 : 0.1;
+    clinicalScore = bmiScore * 0.6 + neckScore * 0.4;
+
+    const fs = imageScore * 0.45 + questionnaireScore * 0.35 + clinicalScore * 0.20;
+    risk = fs >= 0.55 ? 'red' : fs >= 0.30 ? 'yellow' : 'green';
+    if (age > 55 && risk === 'green') risk = 'yellow';
+  }
+
   const finalScore = imageScore * 0.45 + questionnaireScore * 0.35 + clinicalScore * 0.20;
-
-  let risk: RiskLevel = finalScore >= 0.55 ? 'red' : finalScore >= 0.30 ? 'yellow' : 'green';
-  if (age > 55 && risk === 'green') risk = 'yellow';
-
-  // Confidence is higher when real image data is available
   const confidence = Math.min(0.97, 0.65 + finalScore * 0.20 + (frontScale ? 0.08 : 0) + Math.random() * 0.04);
 
-  const messages: Record<RiskLevel, string> = {
+  const adultMessages: Record<RiskLevel, string> = {
     green:  'Facial geometry analysis indicates low OSA risk markers. Recommend standard dental check-up.',
     yellow: 'Moderate risk indicators detected. Clinical evaluation by an ENT specialist is advised.',
     red:    'High-risk airway markers present. Urgent referral for polysomnography strongly recommended.',
   };
+  const paedsMessages: Record<RiskLevel, string> = {
+    green:  'No significant markers of sleep-disordered breathing detected. Routine follow-up recommended.',
+    yellow: 'Moderate indicators of sleep-disordered breathing detected. Paediatric ENT evaluation is advised.',
+    red:    'High-risk markers for paediatric sleep-disordered breathing present. Prompt referral to a paediatric sleep specialist is strongly recommended.',
+  };
 
   return {
     risk, confidence,
-    message: messages[risk],
+    message: (isPaeds ? paedsMessages : adultMessages)[risk],
     scan_id: Math.random().toString(36).slice(2, 12),
     measurements: [
       ...frontMeasurements,

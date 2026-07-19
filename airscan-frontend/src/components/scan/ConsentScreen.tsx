@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import { Disclaimer } from '@/components/ui/Disclaimer';
 import { IconArrowLeft, IconArrow, IconCheck } from '@/components/ui/Icons';
+import type { PatientType } from '@/lib/types';
 
-interface Props { onAgree: () => void; onBack: () => void; }
+interface Props { onAgree: () => void; onBack: () => void; patientType: PatientType; }
 
-export function ConsentScreen({ onAgree, onBack }: Props) {
+export function ConsentScreen({ onAgree, onBack, patientType }: Props) {
+  const isPaeds = patientType === 'paeds';
   const [checked, setChecked] = useState({ data: false, age: false, terms: false });
   const allChecked = checked.data && checked.age && checked.terms;
 
@@ -64,9 +66,10 @@ export function ConsentScreen({ onAgree, onBack }: Props) {
           Before we start, your consent.
         </h2>
         <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.6, marginBottom: 28, maxWidth: 540 }}>
-          Airscan collects facial geometry and demographic information for the sole
-          purpose of airway risk screening. Data is processed under Malaysia&apos;s Personal
-          Data Protection Act 2010.
+          {isPaeds
+            ? 'Airscan collects your child\'s facial geometry and demographic information for the sole purpose of airway risk screening. Data is processed under Malaysia\'s Personal Data Protection Act 2010.'
+            : 'Airscan collects facial geometry and demographic information for the sole purpose of airway risk screening. Data is processed under Malaysia\'s Personal Data Protection Act 2010.'
+          }
         </p>
 
         <div style={{ padding: 18, background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: 'var(--r-lg)', marginBottom: 24, boxShadow: 'var(--shadow-sm)' }}>
@@ -79,10 +82,16 @@ export function ConsentScreen({ onAgree, onBack }: Props) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <Row k="data" title="I consent to the collection and processing of my data"
-            body="My facial landmarks and demographic data will be used to generate a risk score. Data is encrypted and stored in Malaysia." />
-          <Row k="age" title="I am 18 or older, or my guardian has consented on my behalf"
-            body="Airscan is validated for ages 5–80. Users under 18 require guardian approval." />
+          <Row k="data"
+            title={isPaeds ? "I consent to the collection and processing of my child's data" : "I consent to the collection and processing of my data"}
+            body={isPaeds
+              ? "My child's facial landmarks and demographic data will be used to generate a risk score. Data is encrypted and stored in Malaysia."
+              : "My facial landmarks and demographic data will be used to generate a risk score. Data is encrypted and stored in Malaysia."} />
+          <Row k="age"
+            title={isPaeds ? "I am a parent or legal guardian of this child" : "I am 18 or older, or my guardian has consented on my behalf"}
+            body={isPaeds
+              ? "I have the authority to consent to this screening on behalf of the child. Airscan is validated for paediatric patients aged 2–17."
+              : "Airscan is validated for ages 5–80. Users under 18 require guardian approval."} />
           <Row k="terms" title="I understand this is not a medical diagnosis"
             body="Airscan is a pre-screening tool. Any elevated result should be confirmed by a qualified medical practitioner." />
         </div>

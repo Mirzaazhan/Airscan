@@ -7,21 +7,31 @@ import { useScan } from '@/contexts/ScanContext';
 import { predict, predictFallback } from '@/lib/api';
 import { estimatePixelScale } from '@/lib/mediapipe';
 import type { PredictResponse } from '@/lib/types';
-import type { CapturedFrame, Demographics, ScanAngle, ScanRecord, StopBang } from '@/lib/types';
+import type { CapturedFrame, Demographics, PaediatricSleepQuestionnaire, PatientType, ScanAngle, ScanRecord, StopBang } from '@/lib/types';
 
-import { ConsentScreen }       from '@/components/scan/ConsentScreen';
-import { DemographicsScreen }  from '@/components/scan/DemographicsScreen';
-import { QuestionnaireScreen } from '@/components/scan/QuestionnaireScreen';
-import { ScanInstructionsScreen } from '@/components/scan/ScanInstructionsScreen';
-import { ScanScreen }          from '@/components/scan/ScanScreen';
-import { AngleSuccessScreen }  from '@/components/scan/AngleSuccessScreen';
-import { AnalyzingScreen }     from '@/components/scan/AnalyzingScreen';
+import { PatientTypeScreen }           from '@/components/scan/PatientTypeScreen';
+import { ConsentScreen }               from '@/components/scan/ConsentScreen';
+import { DemographicsScreen }          from '@/components/scan/DemographicsScreen';
+import { QuestionnaireScreen }         from '@/components/scan/QuestionnaireScreen';
+import { PaediatricQuestionnaireScreen } from '@/components/scan/PaediatricQuestionnaireScreen';
+import { ScanInstructionsScreen }      from '@/components/scan/ScanInstructionsScreen';
+import { ScanScreen }                  from '@/components/scan/ScanScreen';
+import { AngleSuccessScreen }          from '@/components/scan/AngleSuccessScreen';
+import { AnalyzingScreen }             from '@/components/scan/AnalyzingScreen';
 
-type ScanStep = 'consent' | 'demographics' | 'questionnaire' | 'scan-instructions' | 'scan' | 'angle-success' | 'analyzing';
+type ScanStep = 'patient-type' | 'consent' | 'demographics' | 'questionnaire' | 'paeds-questionnaire' | 'scan-instructions' | 'scan' | 'angle-success' | 'analyzing';
 
 export default function ScanPage() {
   const router = useRouter();
-  const { user, authLoaded, demographics, setDemographics, stopBang, setStopBang, captures, addCapture, resetCaptures, setResult, addScan } = useScan();
+  const {
+    user, authLoaded,
+    patientType, setPatientType,
+    demographics, setDemographics,
+    stopBang, setStopBang,
+    psq, setPsq,
+    captures, addCapture, resetCaptures,
+    setResult, addScan,
+  } = useScan();
 
   useEffect(() => {
     if (authLoaded && !user) router.replace('/');
@@ -29,26 +39,40 @@ export default function ScanPage() {
 
   if (!authLoaded) return <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', background: 'var(--paper)', color: 'var(--ink-3)', fontSize: 13 }}>Loading…</div>;
 
-  const [step, setStep] = useState<ScanStep>('consent');
+  const [step, setStep] = useState<ScanStep>('patient-type');
   const [activeAngle, setActiveAngle] = useState<ScanAngle>('front');
   const [capturedAngles, setCapturedAngles] = useState<ScanAngle[]>([]);
 
+  const onPatientTypeSelect = useCallback((type: PatientType) => {
+    setPatientType(type);
+    setStep('consent');
+  }, [setPatientType]);
+
   const onConsentAgree = useCallback(() => setStep('demographics'), []);
+
   const onDemographicsSubmit = useCallback((form: Demographics) => {
     setDemographics(form);
-    setStep('questionnaire');
+    setStep(form.patientType === 'paeds' ? 'paeds-questionnaire' : 'questionnaire');
   }, [setDemographics]);
+
   const onQuestionnaireSubmit = useCallback((data: StopBang) => {
     setStopBang(data);
     setStep('scan-instructions');
   }, [setStopBang]);
+
+  const onPsqSubmit = useCallback((data: PaediatricSleepQuestionnaire) => {
+    setPsq(data);
+    setStep('scan-instructions');
+  }, [setPsq]);
+
   const onScanStart = useCallback(() => setStep('scan'), []);
 
   const onAngleCapture = useCallback((frame: CapturedFrame) => {
     addCapture(frame);
-    
-    if (frame.angle === 'neck' && frame.neckMeasurement) {
-      const neckThresholdMm = stopBang?.gender ? 430 : 400; // Male >43 cm, Female >40 cm (per infographic)
+
+    // Only update neck score for adult STOP-BANG
+    if (frame.angle === 'neck' && frame.neckMeasurement && patientType === 'adult') {
+      const neckThresholdMm = stopBang?.gender ? 430 : 400;
       const isNeckLarge = frame.neckMeasurement.circumferenceMm > neckThresholdMm;
       if (stopBang) {
         const newScore = stopBang.score + (isNeckLarge && !stopBang.neck ? 1 : 0) - (!isNeckLarge && stopBang.neck ? 1 : 0);
@@ -63,7 +87,7 @@ export default function ScanPage() {
     } else {
       setStep('analyzing');
     }
-  }, [capturedAngles, addCapture, setStopBang]);
+  }, [capturedAngles, addCapture, setStopBang, stopBang, patientType]);
 
   const onNextAngle = useCallback(() => {
     const order: ScanAngle[] = ['front', 'left', 'right', 'mouth_open', 'tongue_out', 'tongue_rest', 'neck', 'nasal'];
@@ -73,7 +97,7 @@ export default function ScanPage() {
   }, [capturedAngles]);
 
   const onAnalyzeDone = useCallback(async () => {
-    const demo = demographics ?? { age: 42, gender: 'Male', weight: 78, height: 172, race: 'Malay' };
+    const demo = demographics ?? { age: 12, gender: 'Male', weight: 40, height: 145, race: 'Malay', patientType: 'adult' as PatientType };
     const sb = stopBang ?? { snoring: false, tired: false, observed: false, pressure: false, bmi: false, age: false, neck: false, gender: true, score: 0 };
     const allCaptures = captures.length >= 7 ? captures : [
       { angle: 'front' as ScanAngle, imageDataUrl: '', landmarks: [], yawAtCapture: 0, capturedAt: new Date().toISOString() },
@@ -86,7 +110,6 @@ export default function ScanPage() {
       { angle: 'nasal' as ScanAngle, imageDataUrl: '', landmarks: [], yawAtCapture: 0, capturedAt: new Date().toISOString() },
     ];
 
-    // Always produce a result — fall back to client-side mock if API is unreachable
     const landmarksPayload = {
       front:       allCaptures.find(f => f.angle === 'front')?.landmarks       ?? [],
       left:        allCaptures.find(f => f.angle === 'left')?.landmarks        ?? [],
@@ -100,17 +123,17 @@ export default function ScanPage() {
 
     let res: PredictResponse;
     try {
-      res = await predict({ demographics: demo, stopBang: sb, landmarks: landmarksPayload });
+      res = await predict({ demographics: demo, patientType, stopBang: sb, psq: psq ?? undefined, landmarks: landmarksPayload });
     } catch (apiErr) {
       console.warn('[Airscan] predict() failed, using client fallback:', apiErr);
       try {
-        res = predictFallback(demo, sb, landmarksPayload);
+        res = predictFallback(demo, sb, landmarksPayload, psq ?? undefined);
       } catch (fallbackErr) {
         console.error('[Airscan] predictFallback() also failed, using minimal result:', fallbackErr);
         res = {
           risk: 'yellow',
           confidence: 0.75,
-          message: 'Moderate risk indicators detected. Clinical evaluation by an ENT specialist is advised.',
+          message: 'Moderate risk indicators detected. Clinical evaluation by a specialist is advised.',
           scan_id: Math.random().toString(36).slice(2, 12),
           measurements: [],
         };
@@ -120,7 +143,7 @@ export default function ScanPage() {
     const neckMeasurement = captures.find(c => c.angle === 'neck')?.neckMeasurement;
     res.neckMeasurement = neckMeasurement;
     if (neckMeasurement) {
-      const isHigh = neckMeasurement.circumferenceMm > 400; // >40cm
+      const isHigh = neckMeasurement.circumferenceMm > 400;
       const neckCranio = {
         name: 'Neck Circumference (Est.)',
         valueMm: Math.round(neckMeasurement.circumferenceMm),
@@ -145,11 +168,8 @@ export default function ScanPage() {
       }
     }
 
-    // flushSync forces the state update to commit before router.push so the
-    // results page never sees result=null (React 18 batching issue in production)
     flushSync(() => setResult(res));
 
-    // Save to history — fire and forget, never block showing results
     const scan: ScanRecord = {
       id: res.scan_id,
       date: new Date().toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -157,7 +177,9 @@ export default function ScanPage() {
       confidence: res.confidence,
       message: res.message,
       demographics: demo,
-      stopBang: sb,
+      patientType,
+      stopBang: patientType === 'adult' ? sb : undefined,
+      psq: patientType === 'paeds' ? (psq ?? undefined) : undefined,
       measurements: res.measurements,
       neckMeasurement,
       nasalAssessment: res.nasalAssessment,
@@ -169,17 +191,23 @@ export default function ScanPage() {
     });
     resetCaptures();
     router.push('/results');
-  }, [demographics, stopBang, captures, setResult, addScan, resetCaptures, router]);
+  }, [demographics, patientType, stopBang, psq, captures, setResult, addScan, resetCaptures, router]);
+
+  const questionnaireBackTarget: ScanStep = 'demographics';
 
   switch (step) {
+    case 'patient-type':
+      return <PatientTypeScreen onSelect={onPatientTypeSelect} onBack={() => router.push('/dashboard')} />;
     case 'consent':
-      return <ConsentScreen onAgree={onConsentAgree} onBack={() => router.push('/dashboard')} />;
+      return <ConsentScreen onAgree={onConsentAgree} onBack={() => setStep('patient-type')} patientType={patientType} />;
     case 'demographics':
-      return <DemographicsScreen onSubmit={onDemographicsSubmit} onBack={() => setStep('consent')} initial={demographics} />;
+      return <DemographicsScreen onSubmit={onDemographicsSubmit} onBack={() => setStep('consent')} initial={demographics} patientType={patientType} />;
     case 'questionnaire':
-      return <QuestionnaireScreen demographics={demographics} onSubmit={onQuestionnaireSubmit} onBack={() => setStep('demographics')} initial={stopBang} />;
+      return <QuestionnaireScreen demographics={demographics} onSubmit={onQuestionnaireSubmit} onBack={() => setStep(questionnaireBackTarget)} initial={stopBang} />;
+    case 'paeds-questionnaire':
+      return <PaediatricQuestionnaireScreen onSubmit={onPsqSubmit} onBack={() => setStep(questionnaireBackTarget)} initial={psq} />;
     case 'scan-instructions':
-      return <ScanInstructionsScreen onStart={onScanStart} onBack={() => setStep('questionnaire')} />;
+      return <ScanInstructionsScreen onStart={onScanStart} onBack={() => setStep(patientType === 'paeds' ? 'paeds-questionnaire' : 'questionnaire')} />;
     case 'scan':
       return <ScanScreen angle={activeAngle} onCapture={onAngleCapture} onBack={() => setStep('scan-instructions')} capturedCount={capturedAngles.length} key={activeAngle} />;
     case 'angle-success': {
