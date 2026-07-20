@@ -1,6 +1,6 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -12,9 +12,16 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+// Track whether this module is initialising for the first time (avoids HMR double-init)
+const isNewApp = getApps().length === 0;
+const app = isNewApp ? initializeApp(firebaseConfig) : getApps()[0];
+
+// ignoreUndefinedProperties prevents Firestore from rejecting optional fields
+// (e.g. stopBang is undefined for paeds scans, psq is undefined for adult scans)
+export const db = isNewApp
+  ? initializeFirestore(app, { ignoreUndefinedProperties: true })
+  : getFirestore(app);
 
 export const auth = getAuth(app);
-export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
