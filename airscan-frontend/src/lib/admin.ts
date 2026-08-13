@@ -10,6 +10,7 @@ import {
   getDoc,
   doc,
   getCountFromServer,
+  updateDoc,
 } from 'firebase/firestore';
 import type { QueryDocumentSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -127,6 +128,16 @@ export async function listScansForUser(uid: string): Promise<ScanRecord[]> {
   );
   const snap = await getDocs(q);
   return snap.docs.map(d => ({ ...(d.data() as ScanRecord), id: d.id }));
+}
+
+export async function updateScanNotes(
+  uid: string,
+  scanId: string,
+  notes: { text: string; authorName: string; authorUid: string }
+): Promise<void> {
+  await updateDoc(doc(db, 'users', uid, 'scans', scanId), {
+    doctorNotes: { ...notes, updatedAt: Date.now() },
+  });
 }
 
 // Used for the activity chart on the dashboard — fetches recent scan timestamps + risk

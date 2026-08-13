@@ -26,6 +26,9 @@ service cloud.firestore {
       match /scans/{scanId} {
         allow read, write: if isOwner(uid);
         allow read: if isAdmin();
+        // Admins can attach doctor notes / ground truth to a patient's scan,
+        // but cannot create or delete scan records.
+        allow update: if isAdmin();
       }
     }
 

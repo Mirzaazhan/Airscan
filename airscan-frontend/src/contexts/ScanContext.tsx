@@ -158,23 +158,28 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    // Upload captured images to Storage, collect download URLs
+    // Upload captured images to Storage, collect download URLs.
+    // Each image is uploaded independently (Promise.allSettled) so one failed
+    // upload doesn't discard images that succeeded.
     const imageRefs: Partial<Record<ScanAngle, string>> = {};
-    try {
-      const { ref, uploadString, getDownloadURL } = await import('firebase/storage');
-      const { storage } = await import('@/lib/firebase');
-      await Promise.all(
-        caps
-          .filter(c => c.imageDataUrl)
-          .map(async c => {
-            const storageRef = ref(storage, `users/${user.uid}/scans/${s.id}/${c.angle}.jpg`);
-            await uploadString(storageRef, c.imageDataUrl, 'data_url');
-            imageRefs[c.angle] = await getDownloadURL(storageRef);
-          })
-      );
-    } catch {
-      // Storage upload failure should not block the Firestore write
-    }
+    const failedAngles: ScanAngle[] = [];
+    const { ref, uploadString, getDownloadURL } = await import('firebase/storage');
+    const { storage } = await import('@/lib/firebase');
+    const capsWithImages = caps.filter(c => c.imageDataUrl);
+    const uploadResults = await Promise.allSettled(
+      capsWithImages.map(async c => {
+        const storageRef = ref(storage, `users/${user.uid}/scans/${s.id}/${c.angle}.jpg`);
+        await uploadString(storageRef, c.imageDataUrl, 'data_url');
+        imageRefs[c.angle] = await getDownloadURL(storageRef);
+      })
+    );
+    uploadResults.forEach((result, i) => {
+      if (result.status === 'rejected') {
+        const angle = capsWithImages[i].angle;
+        failedAngles.push(angle);
+        console.error('[Airscan] image upload failed:', angle, result.reason);
+      }
+    });
 
     const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
     const { db } = await import('@/lib/firebase');
@@ -190,6 +195,11 @@ export function ScanProvider({ children }: { children: ReactNode }) {
       console.error('[Airscan] Firestore write error:', e.code, e.message);
       // Re-throw so the caller can surface the error
       throw err;
+    }
+
+    if (failedAngles.length) {
+      // Scan record is saved; surface the partial image failure so the caller can react.
+      throw new Error(`Image upload failed for angles: ${failedAngles.join(', ')}`);
     }
     // onSnapshot will update scans state automatically
   }, [user]);

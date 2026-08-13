@@ -1,15 +1,46 @@
 'use client';
 
+import { useState } from 'react';
 import type { ScanAngle, ScanRecord } from '@/lib/types';
+import { useScan } from '@/contexts/ScanContext';
+import { updateScanNotes } from '@/lib/admin';
 
 interface Props {
   scan: ScanRecord;
+  uid: string;
   onClose: () => void;
+  onNotesSaved: (scanId: string, notes: NonNullable<ScanRecord['doctorNotes']>) => void;
 }
 
 const ANGLES: ScanAngle[] = ['front', 'left', 'right', 'mouth_open', 'tongue_out', 'tongue_rest', 'neck', 'nasal'];
 
-export function ImageViewerModal({ scan, onClose }: Props) {
+function formatDateTime(ms: number) {
+  return new Date(ms).toLocaleString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+export function ImageViewerModal({ scan, uid, onClose, onNotesSaved }: Props) {
+  const { user } = useScan();
+  const [notesText, setNotesText] = useState(scan.doctorNotes?.text ?? '');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const dirty = notesText.trim() !== (scan.doctorNotes?.text ?? '');
+
+  async function handleSaveNotes() {
+    if (!user || !dirty) return;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const notes = { text: notesText.trim(), authorName: user.displayName, authorUid: user.uid };
+      await updateScanNotes(uid, scan.id, notes);
+      onNotesSaved(scan.id, { ...notes, updatedAt: Date.now() });
+    } catch {
+      setSaveError('Failed to save notes. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <>
       <div
@@ -70,6 +101,35 @@ export function ImageViewerModal({ scan, onClose }: Props) {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Doctor notes / ground truth */}
+          <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--line)' }}>
+            <div className="label" style={{ marginBottom: 8 }}>Doctor notes / ground truth</div>
+            <textarea
+              className="input-field"
+              value={notesText}
+              onChange={e => setNotesText(e.target.value)}
+              placeholder="Add clinical notes or ground-truth assessment for this scan…"
+              rows={4}
+              style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+              <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                {saveError
+                  ? <span style={{ color: 'var(--terra)' }}>{saveError}</span>
+                  : scan.doctorNotes
+                    ? `Last updated by ${scan.doctorNotes.authorName} · ${formatDateTime(scan.doctorNotes.updatedAt)}`
+                    : 'No notes yet.'}
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveNotes}
+                disabled={!dirty || saving}
+                style={{ fontSize: 12, padding: '8px 16px', opacity: (!dirty || saving) ? 0.6 : 1 }}>
+                {saving ? 'Saving…' : 'Save notes'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

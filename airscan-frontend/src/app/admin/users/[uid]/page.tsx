@@ -10,6 +10,10 @@ import { getUserProfile, listScansForUser } from '@/lib/admin';
 import type { AdminUserRow } from '@/lib/admin';
 import type { ScanRecord, RiskLevel } from '@/lib/types';
 
+function applyNotes(scans: ScanRecord[], scanId: string, notes: NonNullable<ScanRecord['doctorNotes']>): ScanRecord[] {
+  return scans.map(s => (s.id === scanId ? { ...s, doctorNotes: notes } : s));
+}
+
 const FIREBASE_ENABLED = !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
 const RISK_COLORS: Record<RiskLevel, string> = { green: 'var(--sage)', yellow: 'var(--amber)', red: 'var(--terra)' };
@@ -204,7 +208,15 @@ export default function AdminUserDetailPage({
       </div>
 
       {viewScan && (
-        <ImageViewerModal scan={viewScan} onClose={() => setViewScan(null)} />
+        <ImageViewerModal
+          scan={viewScan}
+          uid={uid}
+          onClose={() => setViewScan(null)}
+          onNotesSaved={(scanId, notes) => {
+            setScans(prev => applyNotes(prev, scanId, notes));
+            setViewScan(prev => (prev ? { ...prev, doctorNotes: notes } : prev));
+          }}
+        />
       )}
     </div>
   );

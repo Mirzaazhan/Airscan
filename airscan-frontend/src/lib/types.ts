@@ -171,6 +171,12 @@ export interface ScanRecord {
   nasalAssessment?: NasalAssessment;
   sleepData?: SleepData;
   imageRefs?: { front: string; left: string; right: string; mouth_open?: string; tongue_out?: string; tongue_rest?: string; neck?: string; nasal?: string };
+  doctorNotes?: {
+    text: string;
+    authorName: string;
+    authorUid: string;
+    updatedAt: number;
+  };
 }
 
 export interface UserProfile {
