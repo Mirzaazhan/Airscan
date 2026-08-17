@@ -209,7 +209,7 @@ export default function ScanPage() {
     case 'scan-instructions':
       return <ScanInstructionsScreen onStart={onScanStart} onBack={() => setStep(patientType === 'paeds' ? 'paeds-questionnaire' : 'questionnaire')} />;
     case 'scan':
-      return <ScanScreen angle={activeAngle} onCapture={onAngleCapture} onBack={() => setStep('scan-instructions')} capturedCount={capturedAngles.length} key={activeAngle} />;
+      return <ScanScreen angle={activeAngle} onCapture={onAngleCapture} onBack={() => setStep('scan-instructions')} capturedCount={capturedAngles.length} patientType={patientType} key={activeAngle} />;
     case 'angle-success': {
       const order: ScanAngle[] = ['front', 'left', 'right', 'mouth_open', 'tongue_out', 'tongue_rest', 'neck', 'nasal'];
       const nextAngle = order[capturedAngles.length];

@@ -57,6 +57,23 @@ export function estimateYaw(landmarks: Array<{ x: number; y: number; z: number }
   return (distRight - distLeft) / total;
 }
 
+// Fraction of the frame width the face bounding box occupies, using the outer
+// cheekbone landmarks (234/454). Small children framed at "adult" distance
+// produce a noticeably smaller fraction — used to prompt "move closer".
+const MIN_FACE_WIDTH_FRAC = 0.28;
+
+export function estimateFaceWidthFraction(landmarks: Array<{ x: number; y: number; z: number }>): number {
+  const leftEdge  = landmarks[234];
+  const rightEdge = landmarks[454];
+  if (!leftEdge || !rightEdge) return 0;
+  return Math.abs(rightEdge.x - leftEdge.x);
+}
+
+export function isFaceTooSmall(landmarks: Array<{ x: number; y: number; z: number }>): boolean {
+  const frac = estimateFaceWidthFraction(landmarks);
+  return frac > 0 && frac < MIN_FACE_WIDTH_FRAC;
+}
+
 // Target zones in the [-1, +1] yaw scale.
 // Left/right are open-ended so users just need to turn far enough — no narrow window to hit.
 export const YAW_ZONES: Record<ScanAngle, [number, number]> = {
@@ -163,17 +180,32 @@ export function estimateNeckMeasurement(
   return { widthMm, circumferenceMm, scaleMmPerPixel: scale, shouldersVisible };
 }
 
-export async function initMediaPipe(onResults: (results: unknown) => void) {
+export async function initMediaPipe(
+  onResults: (results: unknown) => void,
+  options?: { minDetectionConfidence?: number; minTrackingConfidence?: number }
+) {
   if (typeof window === 'undefined') return null;
+  const faceMeshOptions = {
+    maxNumFaces: 1,
+    refineLandmarks: true,
+    minDetectionConfidence: options?.minDetectionConfidence ?? 0.7,
+    minTrackingConfidence: options?.minTrackingConfidence ?? 0.7,
+  };
   if (faceMeshInstance) {
-    (faceMeshInstance as { onResults: (cb: (r: unknown) => void) => void }).onResults(onResults);
+    const fm = faceMeshInstance as {
+      onResults: (cb: (r: unknown) => void) => void;
+      setOptions: (o: typeof faceMeshOptions) => void;
+    };
+    // Re-apply options in case a different patientType session reused the cached instance.
+    fm.setOptions(faceMeshOptions);
+    fm.onResults(onResults);
     return faceMeshInstance;
   }
   const { FaceMesh } = await import('@mediapipe/face_mesh');
   const faceMesh = new FaceMesh({
     locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
   });
-  faceMesh.setOptions({ maxNumFaces: 1, refineLandmarks: true, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+  faceMesh.setOptions(faceMeshOptions);
   faceMesh.onResults(onResults);
   await faceMesh.initialize();
   faceMeshInstance = faceMesh;

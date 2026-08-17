@@ -3,15 +3,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { IconX } from '@/components/ui/Icons';
 import { FaceMeshOverlay, FaceSilhouette } from '@/components/FaceMesh';
-import type { ScanAngle, CapturedFrame, LandmarkPoint } from '@/lib/types';
-import { KEY_LANDMARK_INDICES, estimateYaw, isInTargetZone, isMouthOpen, YAW_ZONES, initMediaPipe, initPose, estimateNeckMeasurement } from '@/lib/mediapipe';
+import type { ScanAngle, CapturedFrame, LandmarkPoint, PatientType } from '@/lib/types';
+import { KEY_LANDMARK_INDICES, estimateYaw, isInTargetZone, isMouthOpen, isFaceTooSmall, YAW_ZONES, initMediaPipe, initPose, estimateNeckMeasurement } from '@/lib/mediapipe';
 
 interface Props {
   angle: ScanAngle;
   onCapture: (frame: CapturedFrame) => void;
   onBack: () => void;
   capturedCount: number;
+  patientType: PatientType;
 }
+
+// Children's faces score lower confidence against the (adult-skewed) detection model —
+// relax the thresholds so genuine faces aren't silently rejected.
+const NO_FACE_HINT_MS = 2500;
 
 type CaptureState = 'loading' | 'detecting' | 'stabilizing' | 'countdown' | 'capturing' | 'done' | 'error';
 
@@ -20,14 +25,17 @@ const ANGLE_LABELS: Record<ScanAngle, string> = { front: 'Face forward', left: '
 const ANGLE_SUBS:   Record<ScanAngle, string> = { front: 'Look directly at the camera', left: 'Rotate ~90° to your left for a full profile', right: 'Rotate ~90° to your right for a full profile', mouth_open: 'Open your mouth as wide as possible and say “Ahhh” — this determines your Mallampati class', tongue_out: 'Stick your tongue out as far as comfortable', tongue_rest: 'Keep mouth open with tongue relaxed inside', neck: 'Keep shoulders visible and face forward', nasal: 'Tilt head slightly back to expose nostrils' };
 const ANGLE_IDX:    Record<ScanAngle, number> = { front: 0, left: 1, right: 2, mouth_open: 3, tongue_out: 4, tongue_rest: 5, neck: 6, nasal: 7 };
 
-export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
+export function ScanScreen({ angle, onCapture, onBack, capturedCount, patientType }: Props) {
   const [captureState, setCaptureState] = useState<CaptureState>('loading');
   const [stability, setStability] = useState(0);
   const [stableFrames, setStableFrames] = useState(0);
   const [countdownValue, setCountdownValue] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
   const [liveLandmarks, setLiveLandmarks] = useState<Array<{ x: number; y: number; z: number }>>([]);
+  const [noFaceHint, setNoFaceHint] = useState(false);
+  const [faceTooSmall, setFaceTooSmall] = useState(false);
   const livePoseLandmarksRef = useRef<Array<{ x: number; y: number; z: number; visibility?: number }> | null>(null);
+  const noFaceSinceRef = useRef<number | null>(null);
 
   const videoRef    = useRef<HTMLVideoElement>(null);
   const canvasRef   = useRef<HTMLCanvasElement>(null);
@@ -135,10 +143,16 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
             stableRef.current = 0;
             setStableFrames(0);
             setStability(0);
+            setFaceTooSmall(false);
+            if (noFaceSinceRef.current === null) noFaceSinceRef.current = performance.now();
+            if (performance.now() - noFaceSinceRef.current > NO_FACE_HINT_MS) setNoFaceHint(true);
             setCaptureState(prev => prev === 'stabilizing' ? 'detecting' : prev);
             return;
           }
 
+          noFaceSinceRef.current = null;
+          setNoFaceHint(false);
+          setFaceTooSmall(isFaceTooSmall(pts));
           setLiveLandmarks(pts);
           // EMA smoothing — reduces jitter without noticeable lag
           yawEMARef.current = yawEMARef.current * 0.6 + estimateYaw(pts) * 0.4;
@@ -208,7 +222,7 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
               }, 200);
             }
           }
-        });
+        }, patientType === 'paeds' ? { minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 } : undefined);
 
         if (angle === 'neck') {
           const p = await initPose((results: unknown) => {
@@ -256,7 +270,7 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
       cancelled = true;
       stopCamera();
     };
-  }, [angle, captureFrame, onCapture, stopCamera]);
+  }, [angle, captureFrame, onCapture, stopCamera, patientType]);
 
   const statusColor = captureState === 'done' || captureState === 'capturing'
     ? 'var(--sage)'
@@ -272,6 +286,8 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount }: Props) {
     : captureState === 'capturing' ? 'Capturing…'
     : captureState === 'countdown' ? `Hold still! Capturing in ${countdownValue}…`
     : captureState === 'stabilizing' ? `Hold still · ${stableFrames}/${required}`
+    : captureState === 'detecting' && noFaceHint ? 'No face detected — move closer or improve lighting'
+    : captureState === 'detecting' && faceTooSmall ? 'Move closer to fill the frame'
     : 'Align your face in the frame';
 
   // Clamp camera feed to viewport width on small screens
