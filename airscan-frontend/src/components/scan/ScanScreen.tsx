@@ -18,6 +18,9 @@ interface Props {
 // relax the thresholds so genuine faces aren't silently rejected.
 const NO_FACE_HINT_MS = 2500;
 
+// Paeds patients (esp. Down Syndrome) struggle to hold still for a 3s countdown — shorten to 2,1.
+const COUNTDOWN_MS: Record<PatientType, number> = { adult: 3000, paeds: 2000 };
+
 type CaptureState = 'loading' | 'detecting' | 'stabilizing' | 'countdown' | 'capturing' | 'done' | 'error';
 
 const STABLE_FRAMES_REQUIRED: Record<ScanAngle, number> = { front: 10, left: 8, right: 8, mouth_open: 10, tongue_out: 10, tongue_rest: 10, neck: 10, nasal: 10 };
@@ -205,7 +208,7 @@ export function ScanScreen({ angle, onCapture, onBack, capturedCount, patientTyp
 
           if (inCountdown) {
             const elapsed = performance.now() - countdownStartRef.current;
-            const remaining = Math.ceil((3000 - elapsed) / 1000);
+            const remaining = Math.ceil((COUNTDOWN_MS[patientType] - elapsed) / 1000);
             if (remaining > 0) {
               setCountdownValue(remaining);
             } else if (!capturedRef.current) {
