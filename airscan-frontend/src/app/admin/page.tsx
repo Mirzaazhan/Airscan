@@ -109,13 +109,23 @@ export default function AdminPage() {
           </div>
 
           {/* Quick nav */}
-          <div className="card" style={{ padding: '18px 20px', display: 'flex', gap: 12, alignItems: 'center' }}>
+          <div className="card" style={{ padding: '18px 20px', display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>View all users</div>
               <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>Browse registered users and inspect their scan history.</div>
             </div>
             <button className="btn btn-secondary" onClick={() => router.push('/admin/users')} style={{ flexShrink: 0 }}>
               All users →
+            </button>
+          </div>
+
+          <div className="card" style={{ padding: '18px 20px', display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Survey responses</div>
+              <div style={{ fontSize: 12, color: 'var(--ink-3)', marginTop: 2 }}>See remaining reward PINs and who has completed the survey.</div>
+            </div>
+            <button className="btn btn-secondary" onClick={() => router.push('/admin/survey')} style={{ flexShrink: 0 }}>
+              Survey →
             </button>
           </div>
 

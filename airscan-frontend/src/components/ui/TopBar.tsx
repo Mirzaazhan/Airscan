@@ -43,6 +43,7 @@ export function TopBar() {
   const navItems = [
     { id: '/dashboard', label: 'Dashboard' },
     { id: '/history',   label: 'History' },
+    { id: '/survey',    label: 'Survey' },
     { id: '/settings',  label: 'Settings' },
     ...(isAdmin ? [{ id: '/admin', label: 'Admin' }] : []),
   ];

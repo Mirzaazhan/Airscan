@@ -41,6 +41,9 @@ yarn-error.log*
 # firebase
 .firebaserc
 
+# real reward PIN values — never commit
+/scripts/tng-pins*.txt
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

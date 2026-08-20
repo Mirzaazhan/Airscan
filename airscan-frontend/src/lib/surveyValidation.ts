@@ -1,0 +1,29 @@
+import type { SurveyQuestion, SurveySchema, SurveyAnswers, SurveyAnswerValue } from './surveySchema';
+
+export function isQuestionAnswered(question: SurveyQuestion, value: SurveyAnswerValue | undefined): boolean {
+  if (value === undefined || value === null) return false;
+  switch (question.type) {
+    case 'single_choice':
+    case 'yes_no':
+      return typeof value === 'string' && value.length > 0;
+    case 'multi_choice':
+      return Array.isArray(value) && value.length > 0;
+    case 'scale':
+      return typeof value === 'number' && !Number.isNaN(value);
+    case 'short_text':
+    case 'long_text':
+      return typeof value === 'string' && value.trim().length > 0;
+    default:
+      return false;
+  }
+}
+
+export function validateSurveyAnswers(schema: SurveySchema, answers: SurveyAnswers): { valid: boolean; missing: string[] } {
+  const missing: string[] = [];
+  for (const section of schema.sections) {
+    for (const q of section.questions) {
+      if (q.required && !isQuestionAnswered(q, answers[q.id])) missing.push(q.id);
+    }
+  }
+  return { valid: missing.length === 0, missing };
+}
