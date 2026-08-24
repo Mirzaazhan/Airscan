@@ -76,19 +76,19 @@ export default function LandingPage() {
 
       {/* ── Survey promo banner ── */}
       <div style={{
-        background: 'linear-gradient(90deg, var(--amber) 0%, var(--terra) 100%)',
+        background: '#64806B',
         color: 'white', padding: '10px clamp(16px, 5vw, 48px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
         flexWrap: 'wrap', textAlign: 'center',
       }}>
         <span style={{ fontSize: 13, fontWeight: 500 }}>
-          🎁 Share your sleep story — get a <strong>free RM5 Touch &apos;n Go eWallet PIN</strong> for completing our short research survey.
+          Share your sleep story — get a <strong>free RM5 Touch &apos;n Go eWallet PIN</strong> for completing our short research survey.
         </span>
         <button
           onClick={() => handleSignIn('/survey')}
           disabled={signingIn}
           style={{
-            background: 'white', color: 'var(--terra-ink)', border: 'none', borderRadius: 'var(--r-full)',
+            background: 'white', color: '#64806B', border: 'none', borderRadius: 'var(--r-full)',
             padding: '6px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
           }}>
           {signingIn ? 'Signing in…' : "Take the Survey →"}
