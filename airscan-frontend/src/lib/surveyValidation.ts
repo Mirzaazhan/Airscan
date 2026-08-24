@@ -19,11 +19,20 @@ export function isQuestionAnswered(question: SurveyQuestion, value: SurveyAnswer
   }
 }
 
+function isWithinSelectionCap(question: SurveyQuestion, value: SurveyAnswerValue | undefined): boolean {
+  if (question.type !== 'multi_choice' || question.maxSelections === undefined) return true;
+  return !Array.isArray(value) || value.length <= question.maxSelections;
+}
+
+// Re-checked here (not just enforced in the UI) since this gates a real PIN claim —
+// a client that bypasses the UI shouldn't be able to submit an over-cap answer.
 export function validateSurveyAnswers(schema: SurveySchema, answers: SurveyAnswers): { valid: boolean; missing: string[] } {
   const missing: string[] = [];
   for (const section of getVisibleSections(schema, answers)) {
     for (const q of section.questions) {
-      if (q.required && !isQuestionAnswered(q, answers[q.id])) missing.push(q.id);
+      const value = answers[q.id];
+      if (q.required && !isQuestionAnswered(q, value)) { missing.push(q.id); continue; }
+      if (!isWithinSelectionCap(q, value)) missing.push(q.id);
     }
   }
   return { valid: missing.length === 0, missing };

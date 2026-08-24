@@ -6,6 +6,9 @@ import { AirscanMark, IconGoogle, IconShield, IconCheck } from '@/components/ui/
 import { CameraFeed } from '@/components/FaceMesh';
 
 const FIREBASE_ENABLED = !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+// Where to land after sign-in, carried across the signInWithRedirect page reload
+// (the popup path doesn't need this — it resolves without leaving the page).
+const POST_SIGNIN_REDIRECT_KEY = 'airscan_post_signin_redirect';
 
 function FeatureCard({ icon, title, body }: { icon: string; title: string; body: string }) {
   return (
@@ -31,29 +34,35 @@ export default function LandingPage() {
     (async () => {
       const { onAuthStateChanged, getRedirectResult } = await import('firebase/auth');
       const { auth } = await import('@/lib/firebase');
+      const destination = () => {
+        const stored = sessionStorage.getItem(POST_SIGNIN_REDIRECT_KEY);
+        if (stored) sessionStorage.removeItem(POST_SIGNIN_REDIRECT_KEY);
+        return stored ?? '/dashboard';
+      };
       try {
         const result = await getRedirectResult(auth);
-        if (result?.user) { router.replace('/dashboard'); return; }
+        if (result?.user) { router.replace(destination()); return; }
       } catch { /* redirect failed */ }
-      unsub = onAuthStateChanged(auth, u => { if (u) router.replace('/dashboard'); });
+      unsub = onAuthStateChanged(auth, u => { if (u) router.replace(destination()); });
     })();
     return () => unsub?.();
   }, [router]);
 
-  const handleSignIn = async () => {
-    if (!FIREBASE_ENABLED) { router.push('/dashboard'); return; }
+  const handleSignIn = async (destination: string = '/dashboard') => {
+    if (!FIREBASE_ENABLED) { router.push(destination); return; }
     setSigningIn(true);
     try {
       const { signInWithPopup, signInWithRedirect } = await import('firebase/auth');
       const { auth, googleProvider } = await import('@/lib/firebase');
       try {
         await signInWithPopup(auth, googleProvider);
-        router.push('/dashboard');
+        router.push(destination);
       } catch {
         // COOP can block popup result propagation even when auth succeeds
         if (auth.currentUser) {
-          router.push('/dashboard');
+          router.push(destination);
         } else {
+          sessionStorage.setItem(POST_SIGNIN_REDIRECT_KEY, destination);
           await signInWithRedirect(auth, googleProvider);
         }
       }
@@ -64,6 +73,27 @@ export default function LandingPage() {
 
   return (
     <div style={{ minHeight: '100vh', width: '100%', display: 'flex', flexDirection: 'column', background: 'var(--paper)', overflow: 'auto' }}>
+
+      {/* ── Survey promo banner ── */}
+      <div style={{
+        background: 'linear-gradient(90deg, var(--amber) 0%, var(--terra) 100%)',
+        color: 'white', padding: '10px clamp(16px, 5vw, 48px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14,
+        flexWrap: 'wrap', textAlign: 'center',
+      }}>
+        <span style={{ fontSize: 13, fontWeight: 500 }}>
+          🎁 Share your sleep story — get a <strong>free RM5 Touch &apos;n Go eWallet PIN</strong> for completing our short research survey.
+        </span>
+        <button
+          onClick={() => handleSignIn('/survey')}
+          disabled={signingIn}
+          style={{
+            background: 'white', color: 'var(--terra-ink)', border: 'none', borderRadius: 'var(--r-full)',
+            padding: '6px 16px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+          }}>
+          {signingIn ? 'Signing in…' : "Take the Survey →"}
+        </button>
+      </div>
 
       {/* ── Navigation ── */}
       <header style={{
@@ -83,7 +113,7 @@ export default function LandingPage() {
             </span>
           ))}
         </nav>
-        <button className="btn btn-primary" onClick={handleSignIn} disabled={signingIn} style={{ fontSize: 13, padding: '9px 20px', whiteSpace: 'nowrap' }}>
+        <button className="btn btn-primary" onClick={() => handleSignIn()} disabled={signingIn} style={{ fontSize: 13, padding: '9px 20px', whiteSpace: 'nowrap' }}>
           {signingIn ? 'Signing in…' : 'Get Pre-Screened'}
         </button>
       </header>
@@ -114,7 +144,7 @@ export default function LandingPage() {
             sleep apnoea pre-screening — designed for Malaysian primary-care clinics.
           </p>
           <div style={{ display: 'flex', gap: 12, marginTop: 36, flexWrap: 'wrap' }}>
-            <button className="btn btn-primary btn-lg" onClick={handleSignIn} disabled={signingIn}>
+            <button className="btn btn-primary btn-lg" onClick={() => handleSignIn()} disabled={signingIn}>
               <IconGoogle /> {signingIn ? 'Signing in…' : 'Start Your Free Assessment'}
             </button>
             <button className="btn btn-secondary btn-lg">Watch the Demo</button>
@@ -220,7 +250,7 @@ export default function LandingPage() {
             ))}
           </div>
           <div style={{ textAlign: 'center', marginTop: 40, display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button className="btn btn-primary btn-lg" onClick={handleSignIn} disabled={signingIn}>
+            <button className="btn btn-primary btn-lg" onClick={() => handleSignIn()} disabled={signingIn}>
               <IconGoogle /> {signingIn ? 'Signing in…' : 'Start Your Free Assessment'}
             </button>
             <button className="btn btn-secondary btn-lg">Watch the Demo</button>

@@ -30,7 +30,7 @@ export function QuestionField({ question, index, value, onChange }: Props) {
         <SingleChoicePills value={(value as string) ?? ''} onChange={v => onChange(question.id, v)} options={question.options ?? []} />
       )}
       {question.type === 'multi_choice' && (
-        <MultiChoiceChecklist value={(value as string[]) ?? []} onChange={v => onChange(question.id, v)} options={question.options ?? []} />
+        <MultiChoiceChecklist value={(value as string[]) ?? []} onChange={v => onChange(question.id, v)} options={question.options ?? []} maxSelections={question.maxSelections} />
       )}
       {question.type === 'yes_no' && (
         <YesNoToggle value={(value as string) ?? ''} onChange={v => onChange(question.id, v)} />
