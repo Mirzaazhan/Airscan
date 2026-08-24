@@ -1,3 +1,4 @@
+import { getVisibleSections } from './surveySchema';
 import type { SurveyQuestion, SurveySchema, SurveyAnswers, SurveyAnswerValue } from './surveySchema';
 
 export function isQuestionAnswered(question: SurveyQuestion, value: SurveyAnswerValue | undefined): boolean {
@@ -20,7 +21,7 @@ export function isQuestionAnswered(question: SurveyQuestion, value: SurveyAnswer
 
 export function validateSurveyAnswers(schema: SurveySchema, answers: SurveyAnswers): { valid: boolean; missing: string[] } {
   const missing: string[] = [];
-  for (const section of schema.sections) {
+  for (const section of getVisibleSections(schema, answers)) {
     for (const q of section.questions) {
       if (q.required && !isQuestionAnswered(q, answers[q.id])) missing.push(q.id);
     }

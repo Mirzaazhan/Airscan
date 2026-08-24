@@ -2,6 +2,7 @@
 
 import { IconArrowLeft, IconArrow } from '@/components/ui/Icons';
 import { Disclaimer } from '@/components/ui/Disclaimer';
+import { getVisibleSections } from '@/lib/surveySchema';
 import type { SurveySchema, SurveyAnswers, SurveyAnswerValue } from '@/lib/surveySchema';
 import { validateSurveyAnswers } from '@/lib/surveyValidation';
 import { QuestionField } from './QuestionField';
@@ -18,9 +19,12 @@ interface Props {
 
 export function SurveyFormScreen({ schema, answers, onAnswerChange, onSubmit, onBack, submitting, errorMsg }: Props) {
   const { valid } = validateSurveyAnswers(schema, answers);
+  // Re-evaluated on every answer change so a branch (e.g. Q8) reveals/hides its
+  // section immediately, and question numbering stays contiguous for what's shown.
+  const visibleSections = getVisibleSections(schema, answers);
   // Precomputed (not mutated during render) starting question index for each section.
-  const sectionStarts = schema.sections.reduce<number[]>((offsets, _s, i) => {
-    offsets.push(i === 0 ? 0 : offsets[i - 1] + schema.sections[i - 1].questions.length);
+  const sectionStarts = visibleSections.reduce<number[]>((offsets, _s, i) => {
+    offsets.push(i === 0 ? 0 : offsets[i - 1] + visibleSections[i - 1].questions.length);
     return offsets;
   }, []);
 
@@ -37,13 +41,13 @@ export function SurveyFormScreen({ schema, answers, onAnswerChange, onSubmit, on
         </h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {schema.sections.map((section, sIdx) => {
+          {visibleSections.map((section, sIdx) => {
             const sectionStart = sectionStarts[sIdx];
             return (
               <div key={section.id} style={{ background: 'var(--surface)', padding: 20, borderRadius: 'var(--r-md)', border: '1px solid var(--line)' }}>
                 <h3 style={{ fontSize: 16, fontWeight: 600, color: 'var(--ink)', margin: '0 0 4px' }}>{section.heading}</h3>
                 {section.description && (
-                  <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: '0 0 16px' }}>{section.description}</p>
+                  <p style={{ fontSize: 13, color: 'var(--ink-3)', margin: '0 0 16px', whiteSpace: 'pre-line' }}>{section.description}</p>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: section.description ? 0 : 16 }}>
                   {section.questions.map((q, i) => (
