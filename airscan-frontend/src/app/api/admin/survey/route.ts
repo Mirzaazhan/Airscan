@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
       displayName: (r.displayName as string | null) ?? null,
       submittedAt: r.submittedAt?.toMillis?.() ?? null,
       pinIndex: r.pinIndex as number,
+      answers: r.answers ?? {},
     };
   });
 

@@ -4,7 +4,7 @@ const FIREBASE_ENABLED = !!process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
 export interface SurveySubmitResult { status: 'claimed' | 'already_claimed' | 'sold_out'; pin?: string; }
 export interface SurveyStatusResult { hasResponded: boolean; pin?: string; }
-export interface AdminSurveyResponseRow { uid: string; email: string | null; displayName: string | null; submittedAt: number | null; pinIndex: number; }
+export interface AdminSurveyResponseRow { uid: string; email: string | null; displayName: string | null; submittedAt: number | null; pinIndex: number; answers: SurveyAnswers; }
 export interface AdminSurveyData { pinsRemaining: number; pinsTotal: number; responses: AdminSurveyResponseRow[]; }
 
 async function authHeaders(): Promise<HeadersInit> {

@@ -4,14 +4,57 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { TopBar } from '@/components/ui/TopBar';
 import { Disclaimer } from '@/components/ui/Disclaimer';
-import { IconArrowLeft } from '@/components/ui/Icons';
+import { IconArrowLeft, IconDownload } from '@/components/ui/Icons';
 import { StatCard } from '@/components/admin/StatCard';
 import { getAdminSurveyData } from '@/lib/surveyApi';
-import type { AdminSurveyData } from '@/lib/surveyApi';
+import type { AdminSurveyData, AdminSurveyResponseRow } from '@/lib/surveyApi';
+import { AIRSCAN_SURVEY_SCHEMA } from '@/lib/surveySchema';
 
 function formatDateTime(ms: number | null) {
   if (!ms) return '—';
   return new Date(ms).toLocaleDateString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function csvCell(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
+function buildResponsesCsv(responses: AdminSurveyResponseRow[]): string {
+  const questionIds = AIRSCAN_SURVEY_SCHEMA.sections.flatMap(s => s.questions.map(q => q.id));
+  const headers = ['uid', 'email', 'displayName', 'submittedAt', 'pinIndex', ...questionIds];
+
+  const rows = responses.map(r => {
+    const base = [
+      r.uid,
+      r.email ?? '',
+      r.displayName ?? '',
+      r.submittedAt ? new Date(r.submittedAt).toISOString() : '',
+      String(r.pinIndex),
+    ];
+    const answerCells = questionIds.map(qid => {
+      const value = r.answers?.[qid];
+      if (Array.isArray(value)) return value.join('; ');
+      if (value === undefined || value === null) return '';
+      return String(value);
+    });
+    return [...base, ...answerCells].map(csvCell).join(',');
+  });
+
+  // Leading BOM so Excel opens the UTF-8 file correctly instead of mangling accented text.
+  return '﻿' + [headers.map(csvCell).join(','), ...rows].join('\n');
+}
+
+function downloadResponsesCsv(responses: AdminSurveyResponseRow[]) {
+  const csv = buildResponsesCsv(responses);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `airscan-survey-responses-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 export default function AdminSurveyPage() {
@@ -40,11 +83,20 @@ export default function AdminSurveyPage() {
             <IconArrowLeft size={16} /> Admin
           </button>
 
-          <div style={{ marginBottom: 24 }}>
-            <div className="eyebrow" style={{ marginBottom: 8 }}>Admin</div>
-            <h1 className="serif" style={{ fontSize: 'clamp(28px, 3.5vw, 40px)', margin: 0, letterSpacing: '-0.01em', color: 'var(--ink)' }}>
-              Survey responses
-            </h1>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <div className="eyebrow" style={{ marginBottom: 8 }}>Admin</div>
+              <h1 className="serif" style={{ fontSize: 'clamp(28px, 3.5vw, 40px)', margin: 0, letterSpacing: '-0.01em', color: 'var(--ink)' }}>
+                Survey responses
+              </h1>
+            </div>
+            <button
+              className="btn btn-secondary"
+              disabled={!data || data.responses.length === 0}
+              onClick={() => data && downloadResponsesCsv(data.responses)}
+              style={{ gap: 6 }}>
+              <IconDownload size={16} /> Export CSV
+            </button>
           </div>
 
           {error && (
