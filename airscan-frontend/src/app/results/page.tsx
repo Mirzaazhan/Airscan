@@ -8,6 +8,7 @@ import { Disclaimer } from '@/components/ui/Disclaimer';
 import { IconCheck, IconDownload, IconDocument, IconHistory } from '@/components/ui/Icons';
 import { ThreeDModel } from '@/components/ThreeDModel';
 import { downloadPDF } from '@/lib/pdf';
+import { updateScanNotes } from '@/lib/admin';
 import type { RiskLevel, CraniofacialMeasurement } from '@/lib/types';
 
 const COLOR_MAP: Record<RiskLevel, { ring: string; bg: string; ink: string; label: string }> = {
@@ -21,12 +22,21 @@ const FLAG_COLOR: Record<CraniofacialMeasurement['flag'], string> = {
 
 type Tab = 'summary' | 'measurements' | '3d';
 
+function formatDateTime(ms: number) {
+  return new Date(ms).toLocaleString('en-MY', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 export default function ResultsPage() {
   const router = useRouter();
-  const { result, demographics, stopBang, psq, patientType } = useScan();
+  const { result, demographics, stopBang, psq, patientType, user, isAdmin } = useScan();
   const [activeTab, setActiveTab] = useState<Tab>('summary');
   const [pdfLoading, setPdfLoading] = useState(false);
   const [plyLoading, setPlyLoading] = useState(false);
+  const [notesText, setNotesText] = useState('');
+  const [savedNotes, setSavedNotes] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [notesError, setNotesError] = useState<string | null>(null);
+  const [notesSavedMeta, setNotesSavedMeta] = useState<{ authorName: string; updatedAt: number } | null>(null);
 
   if (!result) {
     return (
@@ -107,6 +117,24 @@ export default function ResultsPage() {
     }
   };
 
+  const notesDirty = notesText.trim() !== savedNotes;
+
+  const handleSaveNotes = async () => {
+    if (!user || !notesDirty) return;
+    setNotesSaving(true);
+    setNotesError(null);
+    try {
+      const notes = { text: notesText.trim(), authorName: user.displayName, authorUid: user.uid };
+      await updateScanNotes(user.uid, result.scan_id, notes);
+      setSavedNotes(notes.text);
+      setNotesSavedMeta({ authorName: notes.authorName, updatedAt: Date.now() });
+    } catch {
+      setNotesError('Failed to save notes. Please try again.');
+    } finally {
+      setNotesSaving(false);
+    }
+  };
+
   const handleDownloadPLY = async () => {
     if (!result.faceMesh) return;
     setPlyLoading(true);
@@ -166,6 +194,37 @@ export default function ResultsPage() {
               </button>
             </div>
           </div>
+
+          {/* Doctor notes / ground truth — filled by clinician right after the scan */}
+          {isAdmin && (
+            <div className="card" style={{ padding: 20, marginTop: 16 }}>
+              <div className="label" style={{ marginBottom: 8 }}>Doctor notes / ground truth</div>
+              <textarea
+                className="input-field"
+                value={notesText}
+                onChange={e => setNotesText(e.target.value)}
+                placeholder="Add clinical notes or ground-truth assessment for this scan…"
+                rows={3}
+                style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                <div style={{ fontSize: 11, color: 'var(--ink-3)' }}>
+                  {notesError
+                    ? <span style={{ color: 'var(--terra)' }}>{notesError}</span>
+                    : notesSavedMeta
+                      ? `Saved by ${notesSavedMeta.authorName} · ${formatDateTime(notesSavedMeta.updatedAt)}`
+                      : 'No notes yet — also editable later from Admin › Users.'}
+                </div>
+                <button
+                  className="btn btn-primary"
+                  onClick={handleSaveNotes}
+                  disabled={!notesDirty || notesSaving}
+                  style={{ fontSize: 12, padding: '8px 16px', opacity: (!notesDirty || notesSaving) ? 0.6 : 1 }}>
+                  {notesSaving ? 'Saving…' : 'Save notes'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Tabs */}
           <div className="results-tabs">
