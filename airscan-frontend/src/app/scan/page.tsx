@@ -170,9 +170,16 @@ export default function ScanPage() {
 
     flushSync(() => setResult(res));
 
+    // Exact moment scanning began (earliest captured frame), for ground-truth
+    // classification — distinct from `date`, which is display-only and has no time.
+    const collectedAt = captures.length
+      ? new Date(Math.min(...captures.map(c => new Date(c.capturedAt).getTime()))).toISOString()
+      : new Date().toISOString();
+
     const scan: ScanRecord = {
       id: res.scan_id,
       date: new Date().toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' }),
+      collectedAt,
       risk: res.risk,
       confidence: res.confidence,
       message: res.message,

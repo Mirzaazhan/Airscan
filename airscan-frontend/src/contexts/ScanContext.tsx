@@ -42,11 +42,13 @@ function makeMockScans(): ScanRecord[] {
   };
   const mkId = () => Math.random().toString(36).slice(2, 10);
   const dates = ['14 Apr 2026', '02 Mar 2026', '18 Jan 2026', '05 Dec 2025', '22 Oct 2025'];
+  const collectedTimes = ['2026-04-14T14:32:07.418Z', '2026-03-02T09:15:52.203Z', '2026-01-18T17:48:11.960Z', '2025-12-05T11:02:39.774Z', '2025-10-22T20:26:04.331Z'];
   const risks = ['yellow', 'green', 'green', 'yellow', 'red'] as const;
   const confs = [0.81, 0.92, 0.88, 0.73, 0.79];
   return dates.map((d, i) => ({
     id: mkId(),
     date: d,
+    collectedAt: collectedTimes[i],
     risk: risks[i],
     confidence: confs[i],
     message: messages[risks[i]],

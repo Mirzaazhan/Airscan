@@ -159,6 +159,7 @@ export interface PredictResponse {
 export interface ScanRecord {
   id: string;
   date: string;
+  collectedAt: string;
   risk: RiskLevel;
   confidence: number;
   message: string;

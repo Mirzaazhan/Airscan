@@ -170,7 +170,7 @@ export default function AdminUserDetailPage({
                 </span>
 
                 <div>
-                  <div style={{ fontSize: 13, color: 'var(--ink)' }}>{formatDateTime(scan.date)}</div>
+                  <div style={{ fontSize: 13, color: 'var(--ink)' }}>{formatDateTime(scan.collectedAt ?? scan.date)}</div>
                   <div className="mono" style={{ fontSize: 11, color: 'var(--ink-3)', marginTop: 2 }}>{scan.id}</div>
                 </div>
 
